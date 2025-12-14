@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>x402: 为什么 AI 必须付费？</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=JetBrains+Mono:wght@500&display=swap');
+
+        :root {
+            --bg-deep: #0f172a;
+            --neon-blue: #3b82f6;
+            --neon-pink: #ec4899;
+            --neon-green: #10b981;
+            --neon-yellow: #f59e0b;
+            --text-main: #f8fafc;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: 'Noto Sans SC', sans-serif;
+            width: 100vw; height: 100vh;
+            overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        /* 绝对舞台：1920x1080 */
+        #app-root {
+            width: 1920px; height: 1080px;
+            background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+            position: relative; overflow: hidden;
+            box-shadow: 0 0 100px rgba(0,0,0,0.5);
+        }
+
+        /* 幻灯片通用 */
+        .slide {
+            position: absolute; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden; transition: opacity 0.5s;
+        }
+        .slide.active { opacity: 1; visibility: visible; z-index: 10; }
+        .anim-layout { position: relative; width: 100%; height: 100%; }
+        .slide-title { position: absolute; top: 60px; left: 80px; font-size: 40px; color: #94a3b8; font-weight: bold; border-left: 6px solid var(--neon-blue); padding-left: 20px; }
+
+        /* --- 文字页 --- */
+        .text-slide h1 { font-size: 100px; margin-bottom: 20px; background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .text-slide p { font-size: 32px; color: #cbd5e1; max-width: 1200px; text-align: center; line-height: 1.6; }
+        .highlight { color: var(--neon-blue); font-weight: 900; }
+
+        /* --- 组件：浏览器窗口 --- */
+        .browser-window {
+            position: absolute; width: 600px; height: 350px;
+            background: #1e293b; border: 2px solid #334155; border-radius: 12px;
+            display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        }
+        .browser-bar { height: 40px; background: #334155; display: flex; align-items: center; padding: 0 15px; gap: 8px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; background: #64748b; }
+        .url-bar { flex: 1; height: 24px; background: #0f172a; border-radius: 4px; margin-left: 10px; opacity: 0.5; }
+        .browser-content { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+
+        /* 广告元素 */
+        .ad-popup {
+            position: absolute; width: 200px; height: 120px; background: var(--neon-pink);
+            color: white; font-weight: 900; font-size: 24px;
+            display: flex; align-items: center; justify-content: center; transform: rotate(-10deg);
+            box-shadow: 10px 10px 0 rgba(0,0,0,0.2); border: 2px solid white; z-index: 20; opacity: 0;
+        }
+        .free-badge {
+            font-size: 30px; color: var(--neon-green); font-weight: bold; border: 3px solid var(--neon-green);
+            padding: 10px 20px; transform: rotate(5deg); opacity: 0;
+        }
+
+        /* 机器人 & 人类 */
+        .actor-label { position: absolute; bottom: -40px; width: 100%; text-align: center; font-family: 'JetBrains Mono'; color: #64748b; font-size: 18px; }
+        .human-icon { font-size: 80px; position: absolute; left: -120px; top: 100px; opacity: 0; }
+        .robot-icon {
+            position: absolute; left: -120px; top: 100px; width: 100px; height: 100px;
+            background: var(--neon-blue); border-radius: 20px; opacity: 0;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .robot-eyes { width: 60px; display: flex; justify-content: space-between; }
+        .eye { width: 12px; height: 12px; background: white; border-radius: 50%; }
+
+        /* 402 元素 */
+        .pay-wall {
+            position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.8);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 30; opacity: 0;
+        }
+        .pay-sign { font-size: 40px; font-weight: 900; color: var(--neon-pink); margin-bottom: 20px; }
+
+        /* 算账天平 */
+        .scale-base { position: absolute; bottom: 100px; width: 600px; height: 10px; background: #334155; border-radius: 5px; }
+        .scale-pivot { position: absolute; bottom: 0; left: 50%; width: 0; height: 0; border-left: 20px solid transparent; border-right: 20px solid transparent; border-bottom: 40px solid #334155; transform: translateX(-50%); }
+        .scale-arm { position: absolute; bottom: 40px; left: 0; width: 100%; height: 8px; background: #94a3b8; transition: transform 1s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .pan { width: 150px; height: 10px; background: #94a3b8; position: absolute; top: -50px; display: flex; justify-content: center; align-items: flex-end; }
+        .pan-left { left: 0; border-left: 2px solid #94a3b8; border-right: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; height: 50px; border-radius: 0 0 50px 50px; }
+        .pan-right { right: 0; border-left: 2px solid #94a3b8; border-right: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; height: 50px; border-radius: 0 0 50px 50px; }
+
+        .weight-fee { width: 100px; height: 100px; background: var(--neon-pink); color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; position: absolute; bottom: 20px; opacity: 0; box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+        .weight-gas { width: 20px; height: 20px; background: var(--neon-green); position: absolute; bottom: 20px; opacity: 0; border-radius: 4px; }
+
+        /* 终极流程元素 */
+        .flow-node { position: absolute; width: 120px; height: 120px; background: #1e293b; border: 2px solid #334155; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #94a3b8; font-family: 'JetBrains Mono'; z-index: 10; }
+        .flow-coin { position: absolute; width: 40px; height: 40px; background: var(--neon-yellow); border-radius: 50%; z-index: 20; opacity: 0; display: flex; justify-content: center; align-items: center; font-weight: bold; color: black; font-size: 10px; box-shadow: 0 0 15px var(--neon-yellow); }
+        .flow-receipt { position: absolute; width: 30px; height: 40px; background: white; z-index: 20; opacity: 0; display: flex; justify-content: center; align-items: center; font-size: 20px; border-radius: 4px; }
+
+        /* 导航 */
+        .nav-btn { position: fixed; bottom: 30px; padding: 15px 30px; background: rgba(255,255,255,0.1); border: 1px solid #475569; color: white; cursor: pointer; z-index: 1000; transition: 0.3s; }
+        .nav-btn:hover { background: var(--neon-blue); border-color: var(--neon-blue); }
+        .prev { left: 30px; }
+        .next { right: 30px; }
+    </style>
+</head>
+<body>
+
+<div id="app-root">
+
+    <div class="slide active text-slide" id="s1">
+        <h1>x402 协议</h1>
+        <p style="font-size: 40px; color: var(--neon-blue);">机器经济的支付标准</p>
+        <p style="margin-top: 50px;">为什么以前的互联网免费，<br>而 AI 时代必须付费？</p>
+    </div>
+
+    <div class="slide" id="s2">
+        <div class="anim-layout">
+            <div class="slide-title">01. 免费的真相：羊毛出在猪身上</div>
+
+            <div class="browser-window" id="win-human" style="left: 400px; top: 200px;">
+                <div class="browser-bar"><div class="dot"></div><div class="dot"></div><div class="url-bar"></div></div>
+                <div class="browser-content">
+                    <div style="font-size: 20px; color: #64748b; margin-bottom: 20px;">新闻网站 (News)</div>
+                    <div class="ad-popup" id="s2-ad">📺 广告<br>ADVERT</div>
+                    <div class="free-badge" id="s2-free">免费浏览</div>
+                </div>
+                <div class="human-icon" id="s2-human">👨‍💻</div>
+                <div class="actor-label">人类 (Human)</div>
+            </div>
+
+            <div class="browser-window" id="win-ai" style="left: 1000px; top: 500px; border-color: var(--neon-blue);">
+                <div class="browser-bar"><div class="dot" style="background:var(--neon-blue)"></div><div class="url-bar"></div></div>
+                <div class="browser-content">
+                    <div style="font-size: 20px; color: #64748b; margin-bottom: 20px;">API 数据接口</div>
+                    <div style="font-family: monospace; color: var(--neon-blue); font-size: 14px; opacity:0;" id="s2-nodelay">>> No Ads...</div>
+                    <div class="pay-wall" id="s2-paywall">
+                        <div class="pay-sign">⛔ 402</div>
+                        <div style="color: white; font-size: 18px;">AI 不看广告<br>请支付 $0.001</div>
+                    </div>
+                </div>
+                <div class="robot-icon" id="s2-bot"><div class="robot-eyes"><div class="eye"></div><div class="eye"></div></div></div>
+                <div class="actor-label" style="color:var(--neon-blue)">AI 代理</div>
+            </div>
+
+            <div style="position: absolute; right: 200px; top: 300px; width: 400px; font-size: 24px; color: #94a3b8; line-height: 1.5;">
+                <p id="txt-human" style="opacity:0">人类付出<span style="color:var(--neon-pink)">注意力</span> (看广告)<br>获得免费服务。</p>
+                <p id="txt-ai" style="opacity:0; margin-top: 150px;">AI 没有注意力，无法看广告。<br>商业模式崩塌，必须<span style="color:var(--neon-blue)">直接付费</span>。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide text-slide" id="s3">
+        <h1>痛点：手续费黑洞</h1>
+        <p>AI 每次只买 $0.001 的数据。<br>但传统银行要收 <span class="highlight" style="color:var(--neon-pink); border-color:var(--neon-pink)">$0.30</span> 的过路费。</p>
+        <p>如果用信用卡，成本是价值的 300 倍。</p>
+    </div>
+
+    <div class="slide" id="s4">
+        <div class="anim-layout">
+            <div class="slide-title">02. 经济账：银行 vs 区块链</div>
+
+            <div style="position: absolute; left: 50%; top: 60%; transform: translate(-50%, -50%);">
+                <div class="scale-base"></div>
+                <div class="scale-pivot"></div>
+                <div class="scale-arm" id="s4-arm">
+                    <div class="pan pan-left">
+                        <div style="position: absolute; top: -40px; color: #94a3b8;">银行 (Visa)</div>
+                        <div class="weight-fee" id="s4-fee">费$0.3</div>
+                    </div>
+                    <div class="pan pan-right">
+                        <div style="position: absolute; top: -40px; color: #94a3b8;">区块链 (USDC)</div>
+                        <div class="weight-gas" id="s4-gas"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="position: absolute; left: 740px; top: 350px; opacity: 0; color: var(--neon-yellow); font-weight: bold;" id="coin-left">$0.001</div>
+            <div style="position: absolute; left: 1160px; top: 350px; opacity: 0; color: var(--neon-yellow); font-weight: bold;" id="coin-right">$0.001</div>
+
+            <div style="position: absolute; left: 600px; top: 250px; font-size: 60px; color: var(--neon-pink); font-weight: 900; opacity: 0; transform: rotate(-15deg);" id="res-fail">亏本</div>
+            <div style="position: absolute; left: 1100px; top: 250px; font-size: 60px; color: var(--neon-green); font-weight: 900; opacity: 0; transform: rotate(15deg);" id="res-pass">可行</div>
+        </div>
+    </div>
+
+    <div class="slide text-slide" id="s5">
+        <h1>x402 + USDC</h1>
+        <p>唯一的出路：<br>用 <span class="highlight">x402</span> 告诉 AI 付多少钱。<br>用 <span class="highlight">区块链</span> 极低成本完成支付。</p>
+    </div>
+
+    <div class="slide" id="s6">
+        <div class="anim-layout">
+            <div class="slide-title">03. 终极闭环：机器自主经济</div>
+
+            <div class="flow-node" style="left: 300px; top: 500px; border-color: var(--neon-blue); color: white;">AI 代理</div>
+            <div class="flow-node" style="left: 900px; top: 200px; border-color: var(--neon-green);">USDC 网络</div>
+            <div class="flow-node" style="left: 1500px; top: 500px; border-color: #666;">API 服务器</div>
+
+            <div style="position: absolute; left: 1450px; top: 400px; color: var(--neon-pink); font-weight: bold; font-size: 24px; opacity: 0;" id="s6-status">⛔ 402: 需凭证</div>
+
+            <div class="flow-coin" id="s6-coin">PAY</div>
+            <div class="flow-receipt" id="s6-receipt">🧾</div>
+
+            <div style="position: absolute; left: 1530px; top: 530px; font-size: 60px; opacity: 0.2; filter: grayscale(1);" id="s6-data">📦</div>
+        </div>
+    </div>
+
+</div>
+
+<button class="nav-btn prev" onclick="move(-1)">◀ 上一页</button>
+<button class="nav-btn next" onclick="move(1)">下一页 ▶</button>
+
+<script>
+    // --- 强制缩放 (1920x1080) ---
+    function fit() {
+        const el = document.getElementById('app-root');
+        const sw = window.innerWidth / 1920;
+        const sh = window.innerHeight / 1080;
+        el.style.transform = `scale(${Math.min(sw, sh)})`;
+    }
+    window.addEventListener('resize', fit);
+    fit();
+
+    // --- 幻灯片控制 ---
+    let idx = 0;
+    const slides = document.querySelectorAll('.slide');
+
+    function move(dir) {
+        slides[idx].classList.remove('active');
+        idx += dir;
+        if (idx < 0) idx = 0;
+        if (idx >= slides.length) idx = slides.length - 1;
+        slides[idx].classList.add('active');
+
+        // 触发动画
+        if (idx === 1) playAdsLogic();
+        if (idx === 3) playScaleLogic();
+        if (idx === 5) playFinalLoop();
+    }
+
+    // 键盘
+    document.addEventListener('keydown', e => {
+        if(e.key==='ArrowRight') move(1);
+        if(e.key==='ArrowLeft') move(-1);
+    });
+
+    // ================= 动画剧本 =================
+
+    // 剧本 1: 为什么免费 vs 为什么付费 (广告逻辑)
+    function playAdsLogic() {
+        const tl = gsap.timeline();
+        // Reset
+        gsap.set("#s2-human", { x: -50, opacity: 0 });
+        gsap.set("#s2-bot", { x: -50, opacity: 0 });
+        gsap.set("#s2-ad", { scale: 0, opacity: 0 });
+        gsap.set("#s2-free", { scale: 0, opacity: 0 });
+        gsap.set("#s2-paywall", { opacity: 0 });
+        gsap.set("#txt-human, #txt-ai", { opacity: 0, x: 20 });
+        gsap.set("#s2-nodelay", { opacity: 0 });
+
+        // 1. 人类部分
+        tl.to("#s2-human", { x: 0, opacity: 1, duration: 0.5 })
+            .to("#s2-ad", { scale: 1, opacity: 1, rotation: -10, ease: "elastic.out", duration: 0.5 })
+            .to("#txt-human", { opacity: 1, x: 0, duration: 0.5 })
+            .to("#s2-free", { scale: 1, opacity: 1, rotation: 5, duration: 0.3, delay: 0.5 });
+
+        // 2. AI 部分
+        tl.to("#s2-bot", { x: 0, opacity: 1, duration: 0.5 })
+            .to("#s2-nodelay", { opacity: 1, duration: 0.3 }) // AI 没广告
+            .to("#txt-ai", { opacity: 1, x: 0, duration: 0.5 })
+            .to("#s2-paywall", { opacity: 1, duration: 0.5, backgroundColor: "rgba(0,0,0,0.9)" });
+    }
+
+    // 剧本 2: 天平称重 (成本逻辑)
+    function playScaleLogic() {
+        const tl = gsap.timeline();
+        // Reset
+        gsap.set("#s4-arm", { rotation: 0 });
+        gsap.set("#s4-fee", { y: -200, opacity: 0 });
+        gsap.set("#s4-gas", { y: -200, opacity: 0 });
+        gsap.set("#coin-left, #coin-right", { y: -100, opacity: 0 });
+        gsap.set("#res-fail, #res-pass", { opacity: 0, scale: 0.5 });
+
+        // 1. 放商品 ($0.001)
+        tl.to("#coin-left", { y: 0, opacity: 1, duration: 0.5 })
+            .to("#coin-right", { y: 0, opacity: 1, duration: 0.5 }, "<");
+
+        // 2. 放成本 (Visa 巨石 vs Gas 羽毛)
+        tl.to("#s4-fee", { y: 0, opacity: 1, duration: 0.5, ease: "bounce.out" })
+            .to("#s4-arm", { rotation: -15, duration: 0.5 }, "<") // 压垮
+            .to("#res-fail", { opacity: 1, scale: 1, duration: 0.3 });
+
+        tl.to("#s4-gas", { y: 0, opacity: 1, duration: 0.5 })
+            // 注意：Gas 太轻，压不动天平，甚至可能弹回一点，这里为了视觉简单，保持现状或稍微修正
+            .to("#res-pass", { opacity: 1, scale: 1, duration: 0.3 });
+    }
+
+    // 剧本 3: 终极闭环
+    function playFinalLoop() {
+        const tl = gsap.timeline();
+        // Reset
+        gsap.set("#s6-coin", { x: 300, y: 500, opacity: 0, scale: 0.5 });
+        gsap.set("#s6-receipt", { x: 900, y: 200, opacity: 0, scale: 0.5 });
+        gsap.set("#s6-status", { opacity: 0, text: "⛔ 402: 需凭证", color: "#ff1744" });
+        gsap.set("#s6-data", { opacity: 0.2, filter: "grayscale(1)", scale: 1 });
+
+        // 1. 请求 -> 402
+        tl.to("#s6-coin", { opacity: 0, duration: 0.1 }) // 占位
+            .to("#s6-status", { opacity: 1, y: -10, duration: 0.5 });
+
+        // 2. 支付 (AI -> Chain)
+        tl.to("#s6-coin", { opacity: 1, scale: 1, duration: 0.2 })
+            .to("#s6-coin", { x: 900, y: 200, duration: 1, ease: "power2.inOut" });
+
+        // 3. 凭证回传 (Chain -> AI) - 关键步骤！
+        tl.to("#s6-coin", { opacity: 0, scale: 0, duration: 0.2 })
+            .set("#s6-receipt", { opacity: 1, scale: 1 })
+            .to("#s6-receipt", { x: 300, y: 500, duration: 1, ease: "power2.out" }) // 回到 AI
+            .to("#s6-receipt", { opacity: 0, duration: 0.2 }); // AI 收起
+
+        // 4. 二次请求 (AI -> Server)
+        tl.set("#s6-receipt", { x: 300, y: 500, opacity: 1, scale: 0.5 })
+            .to("#s6-receipt", { x: 1500, y: 500, duration: 1, rotation: -360 }) // 飞向服务器
+            .to("#s6-receipt", { opacity: 0, scale: 1.5, duration: 0.2 })
+
+            .to("#s6-status", { text: "✔ 验证通过", color: "#00e676", duration: 0.2 })
+            .to("#s6-data", { opacity: 1, filter: "grayscale(0)", scale: 1.2, duration: 0.5 });
+    }
+
+</script>
+</body>
+</html>
