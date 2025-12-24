@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NextGen Prediction Market Pitch</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* 动态背景 - 首页专用 */
+        .hero-bg {
+            background: radial-gradient(circle at 50% 50%, #e0f2fe 0%, #f8fafc 100%);
+        }
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.6;
+            z-index: 0;
+        }
+        .blob-1 { top: -10%; right: -10%; width: 600px; height: 600px; background: #bfdbfe; }
+        .blob-2 { bottom: -10%; left: -10%; width: 500px; height: 500px; background: #dbeafe; }
+
+        /* 幻灯片基础 */
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.6s ease-in-out;
+            padding: 40px 80px;
+            box-sizing: border-box;
+            flex-direction: column;
+            justify-content: center;
+            z-index: 10;
+        }
+        .slide.active { display: flex; opacity: 1; }
+
+        /* 入场动画 */
+        .slide.active .animate-up {
+            animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+
+        /* =========== Slide 2 核心动画样式 =========== */
+        .market-system {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            background: #f8fafc;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.02);
+        }
+
+        /* 中心核心 */
+        .core-hub {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            z-index: 10;
+            box-shadow: 0 0 0 rgba(37, 99, 235, 0.4);
+            animation: pulseHub 2s infinite;
+            position: relative;
+        }
+
+        /* 左右节点 */
+        .node-hub {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 60px;
+            height: 60px;
+            background: white;
+            border: 2px solid #cbd5e1;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            color: #64748b;
+            font-size: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .node-hub i { font-size: 20px; margin-bottom: 2px; color: #475569; }
+        .node-left { left: 40px; }
+        .node-right { right: 40px; }
+
+        /* 传输粒子 */
+        .packet {
+            position: absolute;
+            top: 50%;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            opacity: 0;
+            z-index: 8;
+        }
+        .packet-left {
+            background: #10b981; /* Green Money */
+            animation: flowLeft 2s infinite ease-in;
+        }
+        .packet-right {
+            background: #f59e0b; /* Orange Info */
+            animation: flowRight 2s infinite ease-in 1s; /* Delayed */
+        }
+
+        /* 价格显示条 */
+        .price-ticker {
+            position: absolute;
+            bottom: 40px;
+            background: #0f172a;
+            color: #4ade80;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2);
+        }
+        .price-ticker span { font-size: 0.8rem; color: #64748b; font-weight: normal; }
+        .ticker-value::after { content: "50%"; animation: changePrice 4s infinite step-end; }
+
+        /* 导航控制 */
+        .nav-btn {
+            position: fixed; bottom: 40px; z-index: 50;
+            width: 56px; height: 56px; border-radius: 50%;
+            background: white; border: 1px solid #e2e8f0;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s; color: #1e293b;
+        }
+        .nav-btn:hover { background: #007bff; color: white; transform: scale(1.1); }
+        .prev-btn { right: 120px; }
+        .next-btn { right: 40px; }
+
+        .progress-bar { position: fixed; bottom: 0; left: 0; height: 4px; background: #007bff; width: 0%; transition: width 0.4s; z-index: 50; }
+        .page-num { position: fixed; bottom: 40px; left: 40px; font-family: monospace; color: #94a3b8; font-size: 14px; z-index: 50; }
+
+        /* 通用样式 */
+        .text-poly { color: #007bff; }
+        .split-layout { display: flex; gap: 60px; height: 100%; align-items: center; }
+        .text-col { flex: 1; }
+        .img-col { flex: 1.1; display: flex; align-items: center; position: relative; }
+
+        .img-frame {
+            width: 100%;
+            max-height: 80vh;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+        .img-frame img {
+            width: 100%;
+            height: auto;
+            max-height: 80vh;
+            object-fit: contain;
+            object-position: center;
+            display: block;
+        }
+        .img-placeholder-text { position: absolute; color: #94a3b8; font-size: 14px; text-align: center; }
+
+        .concept-card {
+            background: white; padding: 20px; border-radius: 12px;
+            border: 1px solid #f1f5f9; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            margin-bottom: 16px;
+        }
+
+        /* ========================================= */
+        /* 交易流程动画专用样式 (Integrated Animation) */
+        /* ========================================= */
+        .anim-stage {
+            position: relative;
+            width: 1000px;
+            height: 600px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border: 1px solid #cbd5e1;
+            margin: 0 auto;
+            transform: scale(0.85); /* 缩放适配屏幕 */
+        }
+
+        /* 区域背景 */
+        .anim-zone-label {
+            position: absolute; font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; padding: 8px 12px; border-radius: 8px; z-index: 0;
+        }
+        .anim-zone-offchain {
+            position: absolute; top: 0; left: 0; width: 100%; height: 50%;
+            background-color: #f8fafc; border-bottom: 2px dashed #e2e8f0; z-index: 0;
+        }
+        .anim-label-offchain { top: 20px; left: 20px; background: #e2e8f0; color: #64748b; }
+        .anim-zone-onchain {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 50%;
+            background-color: #f0fdf4; z-index: 0;
+        }
+        .anim-label-onchain { bottom: 20px; left: 20px; background: #dcfce7; color: #166534; }
+
+        /* 节点样式 */
+        .anim-node {
+            position: absolute; width: 160px; height: 120px; border-radius: 16px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-weight: bold; transition: all 0.3s; z-index: 10;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); background: white;
+        }
+        .anim-node-tag {
+            position: absolute; top: -10px; font-size: 10px; padding: 2px 8px;
+            border-radius: 10px; color: white; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .anim-tag-central { background: #64748b; }
+        .anim-tag-decentral { background: #22c55e; }
+        .anim-tag-local { background: #3b82f6; }
+
+        .anim-node-user { bottom: 60px; left: 100px; border: 2px solid #3b82f6; color: #1e40af; }
+        .anim-node-relayer { top: 60px; left: 420px; border: 2px dashed #64748b; color: #475569; background: #f1f5f9; }
+        .anim-node-chain { bottom: 60px; left: 420px; border: 2px solid #22c55e; color: #15803d; }
+        .anim-node-oracle { top: 60px; right: 100px; border: 2px solid #ef4444; color: #b91c1c; }
+
+        /* 连线 */
+        .anim-lines { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+        .anim-path { fill: none; stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 6; animation: dash 30s linear infinite; }
+        @keyframes dash { to { stroke-dashoffset: -1000; } }
+
+        /* 代币 */
+        .anim-token {
+            position: absolute; width: 44px; height: 44px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: bold; color: white; z-index: 20;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: all 1s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0;
+        }
+        .anim-token-usdc { background: #2563eb; border: 2px solid white; }
+        .anim-token-yes { background: #16a34a; border: 2px solid white; }
+        .anim-token-data { background: #f59e0b; border: 2px solid white; }
+
+        /* 动画 */
+        .pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(34, 197, 94, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        @keyframes pulseHub {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 20px rgba(37, 99, 235, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+        }
+        @keyframes flowLeft {
+            0% { left: 80px; transform: translateY(-50%) scale(1); opacity: 1; }
+            100% { left: 50%; transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+        }
+        @keyframes flowRight {
+            0% { right: 80px; transform: translateY(-50%) scale(1); opacity: 1; }
+            100% { right: 50%; transform: translate(50%, -50%) scale(0.5); opacity: 0; }
+        }
+        @keyframes changePrice {
+            0% { content: "50%"; color: #94a3b8; }
+            20% { content: "53%"; color: #4ade80; }
+            40% { content: "61%"; color: #4ade80; }
+            60% { content: "58%"; color: #ef4444; }
+            80% { content: "65%"; color: #4ade80; }
+            100% { content: "72%"; color: #4ade80; }
+        }
+
+
+        .anim-float-label {
+            position: absolute; background: rgba(15, 23, 42, 0.9); color: white;
+            padding: 6px 12px; border-radius: 6px; font-size: 12px;
+            z-index: 30; transition: opacity 0.3s; pointer-events: none;
+        }
+
+        .anim-panel {
+            position: absolute; bottom: 30px; right: 30px; width: 340px;
+            background: white; padding: 24px; border-radius: 16px;
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; z-index: 50;
+        }
+    </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<div class="page-num" id="pageNum">01 / 15</div>
+
+<div id="deck">
+
+    <!-- Slide 1: 首页 -->
+    <div class="slide active hero-bg">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="max-w-6xl mx-auto w-full z-10 flex flex-col items-center text-center animate-up">
+            <div class="mb-8 inline-flex items-center px-4 py-2 bg-white/60 backdrop-blur-sm border border-blue-100 rounded-full text-blue-600 font-bold text-sm tracking-widest shadow-sm">
+                <span class="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
+                CHOOSE ME
+            </div>
+            <h1 class="text-7xl font-black text-slate-900 mb-6 leading-tight tracking-tight">
+                The Future of <br>
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Information Markets</span>
+            </h1>
+            <p class="text-2xl text-slate-500 max-w-3xl mx-auto mb-12 font-light leading-relaxed">
+                超越 Polymarket 的全链基础设施。<br>
+                通过 <strong class="text-slate-800">AI 自动化做市</strong> 与 <strong class="text-slate-800">去中心化治理</strong>，<br>将预测市场从“博弈”升级为“真理机器”。
+            </p>
+            <div class="grid grid-cols-3 gap-12 w-full max-w-4xl mt-8">
+                <div class="bg-white/70 backdrop-blur-md p-6 rounded-2xl border border-white/50 shadow-lg">
+                    <i class="fas fa-link text-4xl text-blue-500 mb-4"></i>
+                    <h3 class="font-bold text-slate-800">Chain</h3>
+                </div>
+                <div class="bg-white/70 backdrop-blur-md p-6 rounded-2xl border border-white/50 shadow-lg">
+                    <i class="fas fa-brain text-4xl text-purple-500 mb-4"></i>
+                    <h3 class="font-bold text-slate-800">AI Agent</h3>
+                </div>
+                <div class="bg-white/70 backdrop-blur-md p-6 rounded-2xl border border-white/50 shadow-lg">
+                    <i class="fas fa-gavel text-4xl text-green-500 mb-4"></i>
+                    <h3 class="font-bold text-slate-800">DAO Gov</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 2: 预测市场的本质 (带动画) -->
+    <div class="slide">
+        <div class="max-w-6xl mx-auto w-full h-full flex flex-col justify-center">
+            <div class="mb-8 border-l-4 border-blue-600 pl-6 animate-up">
+                <h2 class="text-5xl font-bold text-slate-900">什么是预测市场？</h2>
+                <p class="text-xl text-slate-500 mt-2">Core Mechanism: Information Aggregation</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-12 h-3/4">
+                <!-- 左侧：文字理论 -->
+                <div class="space-y-4 animate-up delay-1">
+                    <div class="concept-card">
+                        <div class="flex items-start">
+                            <div class="bg-blue-100 p-3 rounded-lg mr-4 text-blue-600"><i class="fas fa-lightbulb text-xl"></i></div>
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-800 mb-2">1. 信息的压缩算法</h3>
+                                <p class="text-slate-600 text-sm">
+                                    基于哈耶克理论：单一专家无法掌握全部真相，但<strong>市场价格</strong>可以高效地聚合分散在每个人手中的私有信息。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="concept-card">
+                        <div class="flex items-start">
+                            <div class="bg-red-100 p-3 rounded-lg mr-4 text-red-600"><i class="fas fa-fire text-xl"></i></div>
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-800 mb-2">2. Skin in the Game</h3>
+                                <p class="text-slate-600 text-sm">
+                                    在社交媒体上发表观点没有成本，但在预测市场，你必须用真金白银下注。这过滤了噪音，留下了最真实的信号。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="concept-card">
+                        <div class="flex items-start">
+                            <div class="bg-green-100 p-3 rounded-lg mr-4 text-green-600"><i class="fas fa-chart-line text-xl"></i></div>
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-800 mb-2">3. 价格即概率</h3>
+                                <p class="text-slate-600 text-sm">
+                                    如果特朗普获胜的价格为 $0.60，意味着市场认为他有 60% 的概率获胜。这比传统民调更实时。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧：动画演示 -->
+                <div class="bg-white rounded-2xl p-8 flex flex-col justify-center items-center border border-slate-200 shadow-xl animate-up delay-2">
+                    <div class="text-center mb-6">
+                        <h3 class="font-bold text-slate-800">价格发现机制演示</h3>
+                        <p class="text-xs text-slate-400 mt-1">资金 + 信息 => 真相</p>
+                    </div>
+
+                    <!-- 动画容器 -->
+                    <div class="market-system">
+
+                        <!-- 左侧节点：资金 -->
+                        <div class="node-hub node-left">
+                            <i class="fas fa-coins text-green-500"></i>
+                            <span>Funds</span>
+                        </div>
+                        <!-- 资金粒子 -->
+                        <div class="packet packet-left"></div>
+
+                        <!-- 中间核心：智能合约 -->
+                        <div class="core-hub">
+                            <i class="fas fa-cog fa-spin" style="animation-duration: 4s;"></i>
+                        </div>
+
+                        <!-- 右侧节点：信息 -->
+                        <div class="node-hub node-right">
+                            <i class="fas fa-newspaper text-orange-500"></i>
+                            <span>Info</span>
+                        </div>
+                        <!-- 信息粒子 -->
+                        <div class="packet packet-right"></div>
+
+                        <!-- 底部价格显示 -->
+                        <div class="price-ticker">
+                            <span>Probability:</span>
+                            <div class="ticker-value"></div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 3: Polymarket 分析 -->
+    <div class="slide">
+        <div class="split-layout">
+            <div class="text-col animate-up">
+                <h2 class="text-4xl font-bold text-slate-900 mb-6">行业标杆：Polymarket</h2>
+                <p class="text-lg text-slate-600 mb-6">
+                    全球最大的 Web3 预测市场，2024年美国大选期间的现象级应用。
+                </p>
+                <div class="bg-slate-100 p-6 rounded-xl border-l-4 border-slate-500 mb-6">
+                    <h4 class="font-bold text-slate-700 mb-2">核心成就：</h4>
+                    <ul class="list-disc pl-5 space-y-2 text-slate-600">
+                        <li>验证了 PMF (Product Market Fit)。</li>
+                        <li>极佳的用户体验，接近 Web2。</li>
+                    </ul>
+                </div>
+                <p class="text-red-500 font-bold mt-4"><i class="fas fa-exclamation-circle"></i> 缺陷：链下撮合、中心化审核、单链孤岛。</p>
+            </div>
+            <div class="img-col animate-up delay-2">
+                <div class="img-frame">
+                    <img src="ScreenShot_2025-12-24_142847_564.png" alt="Polymarket Interface">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 4: 产品展示 -->
+    <div class="slide">
+        <div class="max-w-6xl mx-auto w-full h-full flex flex-col justify-center items-center">
+            <div class="text-center mb-8 animate-up">
+                <h2 class="text-5xl font-bold text-slate-900 mb-4">我们的解决方案</h2>
+                <p class="text-xl text-slate-500">
+                    保留易用性，重塑去中心化内核。
+                </p>
+            </div>
+            <div class="w-full flex justify-center animate-up delay-1">
+                <div class="img-frame shadow-2xl" style="max-width: 90%;">
+                    <img src="展示我们.png" alt="Dashboard">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 5: 差异 1 - 资金 -->
+    <div class="slide">
+        <div class="split-layout">
+            <div class="text-col animate-up">
+                <div class="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold mb-4">差异点 01</div>
+                <h2 class="text-4xl font-bold text-slate-900 mb-6">资金管理</h2>
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
+                    <h4 class="text-2xl font-bold text-green-600">我们: 100% 链上托管</h4>
+                    <p class="text-slate-500 text-sm mt-2">
+                        资金始终存储在智能合约中。Polymarket 使用第三方托管，有被冻结风险。而我们，只有你能动用你的钱。
+                    </p>
+                </div>
+            </div>
+            <div class="img-col animate-up delay-2">
+                <div class="img-frame">
+                    <img src="资金.png" alt="Wallet">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 6: 差异 2 - 上线权 -->
+    <div class="slide">
+        <div class="split-layout">
+            <div class="text-col animate-up">
+                <div class="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold mb-4">差异点 02</div>
+                <h2 class="text-4xl font-bold text-slate-900 mb-6">市场上线权</h2>
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
+                    <h4 class="text-2xl font-bold text-green-600">我们: DAO 社区投票</h4>
+                    <p class="text-slate-500 text-sm mt-2">
+                        Polymarket 需要官方审核。我们允许任何用户在事件池投票，社区投票通过后自动部署，真正的 Permissionless。
+                    </p>
+                </div>
+            </div>
+            <div class="img-col animate-up delay-2">
+                <div class="img-frame">
+                    <img src="投票.png" alt="Voting">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 7: 交易结算架构原理 (新增动画页) -->
+    <div class="slide">
+        <div class="text-center mb-6">
+            <h2 class="text-4xl font-bold text-slate-900">混合架构原理演示</h2>
+            <p class="text-slate-500 mt-2">如何结合 <span class="text-slate-700 font-bold bg-slate-200 px-2 rounded">中心化速度</span> 与 <span class="text-green-700 font-bold bg-green-100 px-2 rounded">去中心化安全</span></p>
+        </div>
+
+        <div class="anim-stage">
+            <!-- 区域背景 -->
+            <div class="anim-zone-offchain"><div class="anim-zone-label anim-label-offchain"><i class="fas fa-server mr-2"></i>Web2 链下区域 (中心化)</div></div>
+            <div class="anim-zone-onchain"><div class="anim-zone-label anim-label-onchain"><i class="fas fa-link mr-2"></i>Web3 链上区域 (去中心化)</div></div>
+
+            <!-- 连线路径 -->
+            <svg class="anim-lines">
+                <!-- User -> Relayer -->
+                <path class="anim-path" d="M 180 480 C 180 120, 420 480, 500 120" />
+                <!-- Relayer -> Chain -->
+                <path class="anim-path" d="M 500 120 L 500 480" />
+                <!-- Chain -> User -->
+                <path class="anim-path" d="M 500 480 L 260 480" />
+                <!-- Oracle -> Relayer -->
+                <path class="anim-path" d="M 900 120 L 580 120" />
+            </svg>
+
+            <!-- 节点 -->
+            <div class="anim-node anim-node-user" id="anim-node-user">
+                <div class="anim-node-tag anim-tag-local">本地处理</div>
+                <i class="fas fa-wallet text-3xl mb-2"></i><span>用户钱包</span>
+            </div>
+
+            <div class="anim-node anim-node-relayer" id="anim-node-relayer">
+                <div class="anim-node-tag anim-tag-central">撮合引擎 (Relayer)</div>
+                <i class="fas fa-network-wired text-3xl mb-2"></i><span>Polymarket 服务器</span>
+            </div>
+
+            <div class="anim-node anim-node-chain" id="anim-node-chain">
+                <div class="anim-node-tag anim-tag-decentral">去中心化</div>
+                <i class="fas fa-cubes text-3xl mb-2"></i><span>Polygon 智能合约</span>
+            </div>
+
+            <div class="anim-node anim-node-oracle" id="anim-node-oracle">
+                <div class="anim-node-tag anim-tag-decentral">去中心化源头</div>
+                <i class="fas fa-balance-scale text-3xl mb-2"></i><span>UMA 预言机</span>
+            </div>
+
+            <!-- 元素 -->
+            <div class="anim-token anim-token-usdc" id="anim-token1" style="bottom: 100px; left: 160px; opacity: 1;">USDC</div>
+            <div class="anim-token anim-token-yes" id="anim-token2" style="bottom: 100px; left: 500px;">YES</div>
+            <div class="anim-token anim-token-data" id="anim-token3" style="top: 100px; right: 160px;">Result</div>
+            <div id="anim-float-msg" class="anim-float-label" style="opacity:0;">Message</div>
+
+            <!-- 面板 -->
+            <div class="anim-panel">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                    <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded" id="anim-step-num">STEP 0</span>
+                    <button onclick="animReset()" class="text-slate-400 hover:text-blue-600 transition"><i class="fas fa-redo-alt"></i></button>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800 mb-2" id="anim-step-title">准备就绪</h3>
+                <p class="text-sm text-slate-500 leading-relaxed min-h-[60px]" id="anim-step-desc">
+                    用户持有 USDC 资金，资金目前在链上的代理合约中。私钥由用户本地持有。
+                </p>
+                <button onclick="animNext()" class="w-full mt-4 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                    下一步 <i class="fas fa-chevron-right text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 8: 差异 3 - 订单薄 -->
+    <div class="slide">
+        <div class="split-layout">
+            <div class="text-col animate-up">
+                <div class="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold mb-4">差异点 03</div>
+                <h2 class="text-4xl font-bold text-slate-900 mb-6">交易撮合</h2>
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
+                    <h4 class="text-2xl font-bold text-green-600">我们: 全链上透明 CLOB</h4>
+                    <p class="text-slate-500 text-sm mt-2">
+                        Polymarket 撮合在黑箱服务器。我们将每一笔挂单吃单都刻在链上，杜绝抢跑交易，完全透明。
+                    </p>
+                </div>
+            </div>
+            <div class="img-col animate-up delay-2">
+                <div class="img-frame">
+                    <img src="订单.png" alt="Orderbook">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 9: 差异 4 - 全链 -->
+    <div class="slide">
+        <div class="split-layout">
+            <div class="text-col animate-up">
+                <div class="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold mb-4">差异点 04</div>
+                <h2 class="text-4xl font-bold text-slate-900 mb-6">网络架构</h2>
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
+                    <h4 class="text-2xl font-bold text-green-600">我们: Chain 全链</h4>
+                    <p class="text-slate-500 text-sm mt-2">
+                        Polymarket 仅限 Polygon。我们支持 ETH, Solana, Base 等多链接入，打破流动性孤岛。
+                    </p>
+                </div>
+            </div>
+            <div class="img-col animate-up delay-2">
+                <div class="img-frame">
+                    <img src="多链选择.png" alt="Omnichain">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 10: 差异 5 - AI -->
+    <div class="slide">
+        <div class="split-layout">
+            <div class="text-col animate-up">
+                <div class="inline-block px-3 py-1 bg-purple-100 text-purple-700 rounded text-xs font-bold mb-4">KILLER FEATURE</div>
+                <h2 class="text-4xl font-bold text-slate-900 mb-6">AI Agent 一键发布</h2>
+                <div class="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-2xl text-white shadow-2xl">
+                    <h3 class="text-2xl font-bold mb-4"><i class="fas fa-magic text-yellow-300 mr-2"></i>Magic Creation</h3>
+                    <p class="text-blue-100 text-sm">
+                        用户只需输入一句话（如“2026年苹果会造车吗？”），AI 自动生成规则、图片并部署合约。
+                    </p>
+                </div>
+            </div>
+            <div class="img-col animate-up delay-2">
+                <div class="img-frame">
+                    <img src="ai.png" alt="AI">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 11: 总结表 -->
+    <div class="slide">
+        <div class="max-w-5xl mx-auto w-full animate-up">
+            <h2 class="text-center text-3xl font-bold mb-10">核心优势总结</h2>
+            <div class="bg-white rounded-xl shadow-xl overflow-hidden border border-slate-200">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                    <tr class="bg-slate-50 text-slate-500 uppercase text-xs">
+                        <th class="p-6">功能</th>
+                        <th class="p-6">Polymarket</th>
+                        <th class="p-6 text-blue-600">Our Project</th>
+                    </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-slate-700">
+                    <tr><td class="p-6 font-bold">资金</td><td class="p-6">托管 (风险)</td><td class="p-6 text-green-600 font-bold">非托管</td></tr>
+                    <tr><td class="p-6 font-bold">上币</td><td class="p-6">中心化</td><td class="p-6 text-green-600 font-bold">DAO 投票</td></tr>
+                    <tr><td class="p-6 font-bold">撮合</td><td class="p-6">链下黑箱</td><td class="p-6 text-green-600 font-bold">链上透明</td></tr>
+                    <tr><td class="p-6 font-bold">网络</td><td class="p-6">单链</td><td class="p-6 text-green-600 font-bold">全链互通</td></tr>
+                    <tr><td class="p-6 font-bold">创新</td><td class="p-6">无</td><td class="p-6 text-blue-600 font-bold">AI Agent</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 12: 体育 -->
+    <div class="slide">
+        <div class="split-layout">
+            <div class="text-col animate-up">
+                <h2 class="text-3xl font-bold mb-4">内容生态：体育</h2>
+                <p class="text-slate-600">支持英超、NBA、F1等全球赛事实时预测。</p>
+            </div>
+            <div class="img-col animate-up delay-1">
+                <div class="img-frame"><span class="img-placeholder-text">体育市场截图</span><img src="体育.png" alt="Sports"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 13: 娱乐 -->
+    <div class="slide">
+        <div class="split-layout">
+            <div class="text-col animate-up">
+                <h2 class="text-3xl font-bold mb-4">内容生态：娱乐 & Crypto</h2>
+                <p class="text-slate-600">"比特币会破10万吗？" 满足所有长尾想象力。</p>
+            </div>
+            <div class="img-col animate-up delay-1">
+                <div class="img-frame"><span class="img-placeholder-text">娱乐市场截图</span><img src="娱乐.png" alt="Crypto"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 14: 结语 -->
+    <div class="slide">
+        <div class="max-w-4xl mx-auto text-center flex flex-col items-center animate-up">
+            <h1 class="text-6xl font-black text-slate-900 mb-8">Join the Revolution</h1>
+            <p class="text-2xl text-slate-500 mb-12">更公平、更智能、更自由。</p>
+            <div class="flex gap-6">
+                <button class="px-8 py-4 bg-blue-600 text-white rounded-full font-bold shadow-lg">接下来让我们的技术总监讲解我们的技术架构</button>
+                <button class="px-8 py-4 bg-white text-slate-700 border border-slate-200 rounded-full font-bold shadow-sm">联系我们</button>
+            </div>
+            <div class="mt-16 text-slate-400 text-sm">© 2025 NextGen Prediction Protocol.</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="nav-btn prev-btn" id="prevBtn" onclick="changeSlide(-1)"><i class="fas fa-arrow-left"></i></div>
+<div class="nav-btn next-btn" id="nextBtn" onclick="changeSlide(1)"><i class="fas fa-arrow-right"></i></div>
+
+<script>
+    // ==========================================
+    // 主幻灯片逻辑
+    // ==========================================
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const progressBar = document.getElementById('progressBar');
+    const pageNum = document.getElementById('pageNum');
+    const totalSlides = slides.length;
+
+    function updateUI() {
+        slides.forEach((slide, index) => {
+            slide.classList.remove('active');
+            if (index === currentSlide) slide.classList.add('active');
+        });
+        const progress = ((currentSlide + 1) / totalSlides) * 100;
+        progressBar.style.width = `${progress}%`;
+        pageNum.textContent = `${String(currentSlide + 1).padStart(2, '0')} / ${totalSlides}`;
+
+        document.getElementById('prevBtn').style.opacity = currentSlide === 0 ? '0.3' : '1';
+        document.getElementById('prevBtn').style.pointerEvents = currentSlide === 0 ? 'none' : 'auto';
+        document.getElementById('nextBtn').style.opacity = currentSlide === totalSlides - 1 ? '0.3' : '1';
+        document.getElementById('nextBtn').style.pointerEvents = currentSlide === totalSlides - 1 ? 'none' : 'auto';
+    }
+
+    function changeSlide(direction) {
+        const nextIndex = currentSlide + direction;
+        if (nextIndex >= 0 && nextIndex < totalSlides) {
+            currentSlide = nextIndex;
+            updateUI();
+        }
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ') changeSlide(1);
+        if (e.key === 'ArrowLeft') changeSlide(-1);
+    });
+
+    updateUI();
+
+    // ==========================================
+    // 交易流程动画逻辑 (Scoped)
+    // ==========================================
+    let animStepIndex = 0;
+    const animTotalSteps = 5;
+    const animT1 = document.getElementById('anim-token1');
+    const animT2 = document.getElementById('anim-token2');
+    const animT3 = document.getElementById('anim-token3');
+    const animMsg = document.getElementById('anim-float-msg');
+
+    const animNodes = {
+        user: document.getElementById('anim-node-user'),
+        relayer: document.getElementById('anim-node-relayer'),
+        chain: document.getElementById('anim-node-chain'),
+        oracle: document.getElementById('anim-node-oracle')
+    };
+    const animUi = {
+        num: document.getElementById('anim-step-num'),
+        title: document.getElementById('anim-step-title'),
+        desc: document.getElementById('anim-step-desc')
+    };
+
+    const animData = [
+        { t: "1. 本地签名 (Local Sign)", d: "用户本地私钥签名，生成订单数据。私钥不离开浏览器，仅发送签名。" },
+        { t: "2. 中心化撮合 (Matching)", d: "签名发送到 Relayer (撮合引擎)。引擎在链下快速匹配买卖双方，无 Gas 费。" },
+        { t: "3. 链上结算 (Settlement)", d: "Relayer 将撮合结果提交到 Polygon 链上。合约验证签名后扣款并铸造代币。" },
+        { t: "4. 结果上链 (Resolution)", d: "UMA 预言机产出结果。Relayer 监测到结果后，发起交易将结果“搬运”并写入链上合约。" },
+        { t: "5. 获胜赎回 (Redemption)", d: "结果写入合约后，用户可直接与合约交互，销毁 YES 代币赎回奖金。" }
+    ];
+
+    function showAnimMsg(text, top, left) {
+        animMsg.innerText = text; animMsg.style.top = top; animMsg.style.left = left; animMsg.style.opacity = 1;
+    }
+    function clearAnimPulse() { Object.values(animNodes).forEach(n => n.classList.remove('pulse')); }
+
+    function animNext() {
+        if(animStepIndex >= animTotalSteps) return animReset();
+        animStepIndex++;
+
+        // 更新文案
+        animUi.num.innerText = `STEP ${animStepIndex}`;
+        animUi.title.innerText = animData[animStepIndex-1].t;
+        animUi.desc.innerText = animData[animStepIndex-1].d;
+
+        clearAnimPulse();
+
+        switch(animStepIndex) {
+            case 1: // 签名
+                animNodes.user.classList.add('pulse');
+                animT1.innerText = "Sig"; animT1.style.backgroundColor = "#64748b";
+                showAnimMsg("生成签名", "430px", "160px");
+                break;
+            case 2: // 发送Relayer
+                animT1.style.bottom = "100px"; animT1.style.left = "480px"; animT1.style.top = "100px";
+                animNodes.relayer.classList.add('pulse');
+                showAnimMsg("订单撮合", "140px", "480px");
+                break;
+            case 3: // Relayer -> Chain
+                animT1.style.top = "auto"; animT1.style.bottom = "100px";
+                animNodes.chain.classList.add('pulse');
+                setTimeout(() => {
+                    animT1.style.opacity = 0; animT2.style.opacity = 1;
+                    showAnimMsg("合约铸币", "430px", "500px");
+                }, 600);
+                setTimeout(() => animT2.style.left = "160px", 1200);
+                break;
+            case 4: // Oracle -> Relayer -> Chain
+                animNodes.oracle.classList.add('pulse');
+                animT3.style.opacity = 1;
+                showAnimMsg("UMA产生结果", "140px", "800px");
+                // 1. Oracle -> Relayer
+                setTimeout(() => {
+                    animT3.style.right = "auto"; animT3.style.left = "500px";
+                    animNodes.relayer.classList.add('pulse');
+                    showAnimMsg("Relayer 获取结果", "140px", "500px");
+                }, 800);
+                // 2. Relayer -> Chain
+                setTimeout(() => {
+                    animT3.style.top = "480px";
+                    animNodes.chain.classList.add('pulse');
+                    showAnimMsg("写入合约", "430px", "500px");
+                }, 1800);
+                setTimeout(() => animT3.style.opacity = 0, 2500);
+                break;
+            case 5: // 赎回
+                animT2.style.left = "500px";
+                showAnimMsg("赎回奖金", "430px", "330px");
+                setTimeout(() => {
+                    animT2.style.opacity = 0; animT1.style.opacity = 1;
+                    animT1.innerText = "USDC"; animT1.style.backgroundColor = "#2563eb";
+                    animT1.style.left = "500px"; animT1.style.bottom = "100px";
+                }, 1000);
+                setTimeout(() => animT1.style.left = "160px", 1500);
+                break;
+        }
+    }
+
+    function animReset() {
+        animStepIndex = 0;
+        animUi.num.innerText = "STEP 0";
+        animUi.title.innerText = "准备就绪";
+        animUi.desc.innerText = "用户持有 USDC 资金，资金目前在链上的代理合约中。私钥由用户本地持有。";
+        clearAnimPulse();
+        animT1.style.transition = "none"; animT1.style.opacity = 1; animT1.style.bottom = "100px"; animT1.style.left = "160px"; animT1.style.top = "auto"; animT1.innerText = "USDC"; animT1.style.backgroundColor = "#2563eb";
+        animT2.style.transition = "none"; animT2.style.opacity = 0; animT2.style.left = "500px";
+        animT3.style.transition = "none"; animT3.style.opacity = 0; animT3.style.top = "100px"; animT3.style.left = "auto"; animT3.style.right = "160px";
+        animMsg.style.opacity = 0;
+        setTimeout(() => {
+            animT1.style.transition = "all 1s"; animT2.style.transition = "all 1s"; animT3.style.transition = "all 1s";
+        }, 100);
+    }
+</script>
+</body>
+</html>

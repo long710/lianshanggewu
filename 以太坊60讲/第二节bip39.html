@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Rick's Crypto Academy: The Complete Course</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto+Mono:wght@400;700&family=Creepster&family=VT323&display=swap');
+
+    :root {
+      --rick-hair: #aaddff;
+      --portal-green: #bfff00;
+      --portal-dark: #004400;
+      --bg-dark: #0b0c15;
+      --ui-border: #00ffcc;
+      --history-bg: #001100;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      color: #fff;
+      font-family: 'Orbitron', sans-serif;
+      user-select: none;
+    }
+
+    #viewport {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at center, #1a1b2e 0%, #000 100%);
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .scanlines {
+      position: fixed;
+      left: 0; top: 0; width: 100vw; height: 100vh;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+      background-size: 100% 4px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* --- UI 层 --- */
+    #ui-layer {
+      position: absolute;
+      z-index: 20;
+      width: 90%;
+      height: 90%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    /* 顶部标题栏 */
+    .top-hud {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 2px solid var(--ui-border);
+      padding-bottom: 10px;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(5px);
+    }
+    .hud-title h1 { margin: 0; color: var(--portal-green); font-size: 24px; letter-spacing: 2px; }
+    .hud-title span { font-family: 'Roboto Mono'; font-size: 12px; color: #888; }
+    .hud-status { text-align: right; font-family: 'Roboto Mono'; color: var(--rick-hair); }
+
+    /* --- 核心舞台 (Stage) --- */
+    #central-stage {
+      position: absolute;
+      top: 45%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 75%;
+      height: 550px; /* 增加高度以容纳内容 */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      perspective: 1000px;
+      pointer-events: auto;
+    }
+
+    /* --- 1. 历史档案面板样式 --- */
+    .history-panel {
+      width: 100%; height: 100%;
+      background: rgba(0, 20, 10, 0.95);
+      border: 2px solid var(--portal-green);
+      box-shadow: 0 0 30px rgba(191, 255, 0, 0.1);
+      padding: 30px; box-sizing: border-box;
+      font-family: 'VT323', monospace; color: #00ffaa;
+      display: flex; flex-direction: column;
+      overflow: hidden; animation: fadeIn 0.5s; position: relative;
+    }
+    .history-header { border-bottom: 1px dashed var(--portal-green); padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; font-size: 24px; flex-shrink: 0; }
+    .history-content { font-size: 18px; line-height: 1.6; white-space: pre-wrap; overflow-y: auto; }
+    .history-content::-webkit-scrollbar { width: 5px; }
+    .history-content::-webkit-scrollbar-thumb { background: var(--portal-green); }
+    .secret-stamp { position: absolute; bottom: 20px; right: 20px; border: 3px solid #ff0055; color: #ff0055; font-size: 30px; font-weight: bold; padding: 10px 20px; transform: rotate(-15deg); opacity: 0.8; font-family: 'Black Ops One', sans-serif; pointer-events: none; }
+
+    /* --- 2. 数学深度解析面板样式 (New) --- */
+    .logic-container {
+      display: flex; align-items: center; justify-content: center; gap: 20px;
+      font-family: 'Roboto Mono'; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.9); border: 2px solid #ff0055; padding: 20px; border-radius: 10px;
+      animation: popIn 0.3s;
+    }
+    .binary-chunk { display: flex; gap: 4px; background: rgba(0,0,0,0.5); padding: 10px; border: 1px solid #00ffcc; border-radius: 8px; flex-wrap: wrap; justify-content: center; max-width: 400px; }
+    .bit-box { width: 25px; height: 45px; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid #333; }
+    .bit-val { font-size: 20px; font-weight: bold; color: #fff; }
+    .bit-power { font-size: 9px; color: #888; margin-top: 2px; }
+
+    .arrow-box { font-size: 40px; color: var(--portal-green); animation: pulse 1s infinite; margin: 0 10px; }
+
+    .result-box { background: rgba(20, 10, 0, 0.8); border: 2px solid #ffaa00; padding: 20px; text-align: center; border-radius: 10px; min-width: 220px; }
+    .decimal-val { font-size: 50px; color: #ffaa00; font-weight: bold; line-height: 1; margin: 10px 0; }
+    .word-lookup { margin-top: 15px; color: #aaa; font-size: 14px; border-top: 1px dashed #555; padding-top: 10px; }
+    .final-word { font-size: 32px; color: var(--portal-green); text-transform: uppercase; font-weight: bold; display: block; margin-top: 5px; text-shadow: 0 0 10px var(--portal-green); }
+
+    /* --- 3. 单词卡片样式 --- */
+    .word-card {
+      width: 120px; height: 160px; background: var(--portal-green); color: #000;
+      border: 3px solid #fff; border-radius: 10px;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      font-family: 'Roboto Mono'; font-weight: bold; box-shadow: 0 0 20px var(--portal-green);
+      animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); margin: 10px; text-align: center;
+    }
+
+    @keyframes popIn { from { transform: scale(0) rotate(-10deg); } to { transform: scale(1) rotate(0); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 0.8; } }
+
+    /* 底部 UI */
+    .bottom-hud { display: flex; gap: 20px; align-items: flex-end; pointer-events: auto; }
+    .dialogue-box { flex: 1; background: rgba(10, 20, 20, 0.95); border: 2px solid #555; border-left: 5px solid var(--portal-green); padding: 15px; display: flex; gap: 15px; align-items: center; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+    .avatar { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; border: 2px solid #fff; box-shadow: 0 0 10px var(--portal-green); flex-shrink: 0; }
+    .avatar.rick { background: var(--rick-hair); color: #0044aa; }
+    .avatar.morty { background: #ffffaa; color: #aa8800; }
+    .dialogue-content h3 { margin: 0 0 5px 0; color: var(--portal-green); font-size: 14px; }
+    .dialogue-content p { margin: 0; font-family: 'Roboto Mono'; font-size: 14px; line-height: 1.4; color: #ddd; }
+    .controls { display: flex; flex-direction: column; gap: 5px; min-width: 180px; }
+    .btn { background: rgba(0,0,0,0.5); border: 2px solid var(--portal-green); color: var(--portal-green); padding: 15px; font-family: 'Orbitron'; font-weight: bold; cursor: pointer; transition: 0.2s; text-transform: uppercase; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+    .btn:hover { background: var(--portal-green); color: #000; box-shadow: 0 0 15px var(--portal-green); }
+    .step-dots { display: flex; justify-content: center; gap: 5px; }
+    .dot { width: 10px; height: 4px; background: #444; transform: skewX(-20deg); }
+    .dot.active { background: var(--portal-green); box-shadow: 0 0 5px var(--portal-green); }
+
+  </style>
+</head>
+<body>
+
+<div id="viewport">
+  <div class="scanlines"></div>
+  <canvas id="mainCanvas"></canvas>
+
+  <div id="ui-layer">
+    <div class="top-hud">
+      <div class="hud-title">
+        <h1>RICK'S ACADEMY</h1>
+        <span>Course: BIP-39 Grand Unified Theory</span>
+      </div>
+      <div class="hud-status">
+        <div id="stage-name">MODE: CLASSIFIED HISTORY</div>
+        <div id="bit-counter">SECURE LEVEL: 5</div>
+      </div>
+    </div>
+
+    <div id="central-stage"></div>
+
+    <div class="bottom-hud">
+      <div class="dialogue-box">
+        <div class="avatar rick" id="avatar">R</div>
+        <div class="dialogue-content">
+          <h3 id="speaker">RICK</h3>
+          <p id="message">Initializing...</p>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="step-dots" id="dots-container"></div>
+        <button class="btn" id="next-btn" onclick="nextStep()">ACCESS FILE >></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /**
+   * --- SETUP & CONFIG ---
+   */
+  const canvas = document.getElementById('mainCanvas');
+  const ctx = canvas.getContext('2d');
+  let w, h;
+  let frame = 0;
+  let phase = 0;
+  let animReq;
+
+  // UI Ref
+  const ui = {
+    avatar: document.getElementById('avatar'),
+    speaker: document.getElementById('speaker'),
+    message: document.getElementById('message'),
+    stageName: document.getElementById('stage-name'),
+    bitCounter: document.getElementById('bit-counter'),
+    nextBtn: document.getElementById('next-btn'),
+    stageDiv: document.getElementById('central-stage'),
+    dotsContainer: document.getElementById('dots-container')
+  };
+
+  /**
+   * --- SCRIPT DATA (历史 + 技术 + 数学) ---
+   */
+  const script = [
+    {
+      stage: "FILE 01: ORIGIN OF BIP-39",
+      speaker: "RICK",
+      type: "rick",
+      text: "听着 Morty，想成神得先懂历史。2013年以前，私钥是 '8E43...' 这种反人类的乱码。直到 Marek Palatinus 发明了 BIP-39，把备份变成了背单词。",
+      btn: "READ FILE >>",
+      history: {
+        title: "SUBJECT: BIP-39 (2013)",
+        body: ">> PROPOSAL: Bitcoin Improvement Proposal 039\n>> AUTHORS: Marek Palatinus, Pavol Rusnak (SatoshiLabs)\n>> YEAR: 2013\n\n[CONTEXT]\n在 BIP-39 之前，只有疯子才会去备份钱包。因为私钥是 '8E43 5C...' 这种没人性的十六进制。\n\n[INNOVATION]\nPalatinus 意识到：与其让备份适应机器，不如让备份适应人类。\n他利用 2048 个常用英语单词作为索引，创造了 'Mnemonic Code'。\n\n从此，备份钱包就像记一句咒语一样简单。这是 UI/UX 的革命，Morty！",
+        stamp: "DECLASSIFIED"
+      }
+    },
+    {
+      stage: "FILE 02: ORIGIN OF SHA-256",
+      speaker: "RICK",
+      type: "rick",
+      text: "但要把混乱的熵变成规整的单词，需要一个引擎：SHA-256。这是 NSA（美国国安局）造的。讽刺吧？加密货币的核心竟然来自间谍机构。",
+      btn: "OPEN NSA FILE >>",
+      history: {
+        title: "SUBJECT: SHA-2 (SHA-256)",
+        body: ">> CREATOR: National Security Agency (NSA)\n>> PUBLISHER: NIST (FIPS 180-4)\n>> RELEASE: 2001\n\n[MECHANISM]\nSHA-256 是'Merkle-Damgård'结构的散列函数。\n它接收任意长度的消息，通过 64 轮位运算循环，输出一个固定的 256 位指纹。\n\n[IRONY]\n比特币——一个旨在推翻中央集权货币的系统，其核心算法竟来自全球最大的间谍机构。\n这就是加密学的黑色幽默。NSA 造了把锁，中本聪用它锁住了银行。",
+        stamp: "TOP SECRET"
+      }
+    },
+    {
+      stage: "PHASE 3: RAW ENTROPY",
+      speaker: "RICK",
+      type: "rick",
+      text: "历史课结束。现在回到实验室。我们手里有 128 位的【原始熵】。就是刚才那些粒子乱撞生成的。现在它是一堆没用的 0 和 1。",
+      btn: "START PROCESS >>"
+    },
+    {
+      stage: "PHASE 4: THE HASHING",
+      speaker: "RICK",
+      type: "rick",
+      text: "启动 SHA-256 引擎！我们要算出【校验码】。只要这 128 位里有一个电子不对劲，SHA-256 就会引发雪崩，生成的指纹完全不同。",
+      btn: "CRUNCH IT >>"
+    },
+    {
+      stage: "PHASE 5: THE GLUE (CHECKSUM)",
+      speaker: "RICK",
+      type: "rick",
+      text: "哈希算出来了。我们切下前 4 位 (Checksum)，粘在屁股后面。现在总长 132 位。这4位就是你的“防伪标签”。",
+      btn: "SLICE IT >>"
+    },
+    {
+      stage: "PHASE 6: THE CUT (11 BITS)",
+      speaker: "MORTY",
+      type: "morty",
+      text: "我看我们要切蛋糕了 Rick... 为什么要切成 11 块？为什么不是 10 块或者 8 块？",
+      btn: "EXPLAIN MATH >>"
+    },
+    {
+      // --- NEW INTEGRATED MATH MODULE ---
+      stage: "PHASE 7: MATH DEEP DIVE",
+      speaker: "RICK",
+      type: "rick",
+      text: "因为 BIP-39 字典正好有 2048 个单词！而 2 的 11 次方刚好等于 2048。看屏幕！每一段 11 位二进制，本质上就是那一页单词的【页码】！",
+      btn: "TRANSLATE >>",
+      isMath: true
+    },
+    {
+      stage: "PHASE 8: FINAL WORDS",
+      speaker: "RICK",
+      type: "rick",
+      text: "看明白了吗？二进制 -> 十进制索引 -> 查单词。这就是助记词的真面目。别弄丢了，Morty，我不想再去平行宇宙给你找回密码了。",
+      btn: "RESTART CLASS"
+    }
+  ];
+
+  // Initialize Dots
+  script.forEach((_, i) => {
+    let d = document.createElement('div');
+    d.className = 'dot';
+    ui.dotsContainer.appendChild(d);
+  });
+
+  function resize() {
+    w = window.innerWidth;
+    h = window.innerHeight;
+    canvas.width = w;
+    canvas.height = h;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function rand(min, max) { return Math.random() * (max - min) + min; }
+
+  /**
+   * --- VISUAL ASSETS ---
+   */
+  let bits = [];
+  function initBits(count = 128) {
+    bits = [];
+    let startX = w/2 - (count * 6) / 2;
+    for(let i=0; i<count; i++) {
+      bits.push({
+        val: Math.random()>0.5 ? 1 : 0,
+        x: startX + i*8,
+        y: h/2,
+        color: '#00ffcc',
+        isChecksum: false
+      });
+    }
+  }
+
+  // Animation Vars
+  let crusherY = -200;
+  let crushState = 0;
+
+  /**
+   * --- DRAWING CANVAS ---
+   */
+  function drawBits() {
+    // Only draw bits if we are past the history lesson and NOT in math dive
+    if(phase < 2 || phase === 6) return; // Hide bits during math deep dive overlay
+
+    ctx.font = "bold 16px 'Roboto Mono'";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    bits.forEach((b, i) => {
+      let drawX = b.x;
+      let drawY = b.y;
+
+      // Phase 4: Crusher shake
+      if (phase === 3 && crushState === 2) {
+        drawX += (Math.random()-0.5)*5;
+        drawY += (Math.random()-0.5)*5;
+        b.color = `rgb(${rand(0,255)}, 255, ${rand(0,255)})`;
+      }
+
+      // Phase 6+: Slicing
+      if (phase >= 5) {
+        let group = Math.floor(i / 11);
+        let offset = group * 20;
+        drawX += offset - 100;
+
+        if(i % 11 === 0 && i < 132) {
+          ctx.strokeStyle = '#444';
+          ctx.beginPath(); ctx.moveTo(drawX - 5, drawY - 20); ctx.lineTo(drawX - 5, drawY + 20); ctx.stroke();
+        }
+      }
+
+      ctx.fillStyle = b.isChecksum ? '#ff0055' : b.color;
+      ctx.fillText(b.val, drawX, drawY);
+    });
+  }
+
+  function drawCrusher() {
+    if(phase !== 3) return; // Only in hashing phase
+
+    let cx = w/2;
+    let cy = h/2 - 50;
+
+    if(crushState === 1 && crusherY < cy) crusherY += 10;
+    else if(crushState === 1) crushState = 2;
+
+    ctx.fillStyle = 'rgba(20, 20, 30, 0.9)';
+    ctx.strokeStyle = '#bfff00';
+    ctx.lineWidth = 3;
+    let shakeX = (crushState === 2) ? (Math.random()-0.5)*10 : 0;
+    ctx.strokeRect(cx - 150 + shakeX, crusherY - 50, 300, 100);
+    ctx.fillStyle = '#bfff00';
+    ctx.font = "20px Orbitron";
+    ctx.fillText(crushState===2 ? "NSA SHA-256 ENGINE..." : "LOAD SHA-256", cx + shakeX, crusherY);
+
+    if (crushState === 2) {
+      // Calculation sparks
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(cx + (Math.random()-0.5)*280, crusherY + 45, 4, 20);
+    }
+  }
+
+  function drawLaser() {
+    if(phase !== 5) return; // Slicing phase
+    let startX = w/2 - 400;
+    let endX = w/2 + 400;
+
+    ctx.strokeStyle = '#ff0055';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(startX, h/2 - 30); ctx.lineTo(endX, h/2 - 30); ctx.stroke();
+
+    for(let i=1; i<12; i++) {
+      let x = (w/2 - 350) + i * 60;
+      ctx.beginPath(); ctx.moveTo(x, h/2 - 40); ctx.lineTo(x, h/2 + 40); ctx.stroke();
+      ctx.shadowBlur = 10; ctx.shadowColor = '#ff0055';
+      ctx.beginPath(); ctx.arc(x, h/2 - 30, 3, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  function drawBg() {
+    if(phase < 2) return;
+
+    ctx.strokeStyle = 'rgba(0, 255, 204, 0.05)';
+    ctx.lineWidth = 1;
+    let time = frame * 0.5;
+
+    ctx.beginPath();
+    for(let y=0; y<h; y+=40) {
+      let drawY = (y + time) % h;
+      ctx.moveTo(0, drawY); ctx.lineTo(w, drawY);
+    }
+    ctx.stroke();
+  }
+
+  /**
+   * --- LOGIC CONTROL ---
+   */
+
+  function updateState(p) {
+    let s = script[p];
+
+    // Update Text
+    ui.stageName.innerText = s.stage;
+    ui.speaker.innerText = s.speaker;
+    ui.message.innerText = s.text;
+    ui.nextBtn.innerText = s.btn;
+
+    // Avatar
+    ui.avatar.className = `avatar ${s.type}`;
+    ui.avatar.innerText = s.type === 'rick' ? 'R' : 'M';
+    if(s.type==='rick') {
+      ui.avatar.style.background = 'var(--rick-hair)'; ui.avatar.style.color = '#0044aa';
+    } else {
+      ui.avatar.style.background = '#ffffaa'; ui.avatar.style.color = '#aa8800';
+    }
+
+    // Dots
+    let dots = document.querySelectorAll('.dot');
+    dots.forEach((d,i) => {
+      d.classList.toggle('active', i <= p);
+    });
+
+    ui.stageDiv.innerHTML = ''; // Clear Stage
+
+    // --- Phase Logic ---
+
+    // History
+    if (p === 0 || p === 1) {
+      let hData = s.history;
+      ui.stageDiv.innerHTML = `
+          <div class="history-panel">
+            <div class="history-header">
+              <span>${hData.title}</span>
+              <span>CONFIDENTIAL</span>
+            </div>
+            <div class="history-content">${hData.body}</div>
+            <div class="secret-stamp">${hData.stamp}</div>
+          </div>
+        `;
+    }
+
+    // Init Bits
+    else if(p === 2) {
+      initBits(128);
+      ui.bitCounter.innerText = "BITS: 128 / 128";
+    }
+
+    // Hash
+    else if(p === 3) {
+      crushState = 1;
+    }
+
+    // Checksum
+    else if(p === 4) {
+      if(bits.length === 128) {
+        for(let i=0; i<4; i++) {
+          bits.push({val: 1, x:0, y:0, color:'#ff0055', isChecksum:true});
+        }
+      }
+      ui.bitCounter.innerText = "BITS: 132 (128+4)";
+    }
+
+    // Math Deep Dive (NEW)
+    else if(p === 6 && s.isMath) {
+      // Generate the Math Visualization HTML
+      let bitsHtml = [1,0,1,1,0,0,1,0,1,0,1].map((b,i) => `
+        <div class="bit-box">
+          <div class="bit-val" style="color:${b?'#bfff00':'#555'}">${b}</div>
+          <div class="bit-power">2^${10-i}</div>
+        </div>
+      `).join('');
+
+      ui.stageDiv.innerHTML = `
+        <div class="logic-container">
+          <div style="flex:1;">
+             <h3 style="color:#fff; text-align:center; margin-bottom:10px;">ONE SLICE (11 BITS)</h3>
+             <div class="binary-chunk">${bitsHtml}</div>
+             <div style="text-align:center; font-size:12px; color:#888; margin-top:5px;">2^11 = 2048 Combinations</div>
+          </div>
+
+          <div class="arrow-box">➜</div>
+
+          <div class="result-box">
+            <div style="font-size:12px; color:#aaa;">DECIMAL INDEX</div>
+            <div class="decimal-val">1429</div>
+            <div class="word-lookup">
+              LOOKUP BIP-39 DICTIONARY<br>
+              <span style="font-size:12px; color:#666;">Page #1429</span><br>
+              <span class="final-word">"QUALITY"</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Final Words
+    else if(p === 7) {
+      const words = ["witch", "collapse", "practice", "feed", "shame", "open", "despair", "creek", "road", "again", "ice", "least"];
+      let html = '';
+      words.forEach((w, i) => {
+        html += `
+          <div class="word-card" style="animation-delay:${i*0.1}s">
+            <div class="index-num">#${i+1}</div>
+            <div class="word-text">${w}</div>
+          </div>
+        `;
+      });
+      ui.stageDiv.style.flexWrap = 'wrap';
+      ui.stageDiv.style.width = '600px';
+      ui.stageDiv.innerHTML = html;
+      bits = [];
+    }
+  }
+
+  function nextStep() {
+    phase++;
+    if(phase >= script.length) phase = 0;
+    updateState(phase);
+  }
+
+  function loop() {
+    ctx.clearRect(0,0,w,h);
+    drawBg();
+
+    // Draw canvas elements based on phase
+    if(phase >= 2 && phase < 7) drawBits();
+    if(phase === 3) drawCrusher();
+    if(phase === 5) drawLaser();
+
+    frame++;
+    animReq = requestAnimationFrame(loop);
+  }
+
+  // Init
+  updateState(0);
+  loop();
+
+</script>
+</body>
+</html>
