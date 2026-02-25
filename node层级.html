@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>节点与质押层级关系展示</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans">
+<div id="app" class="max-w-6xl mx-auto p-4 lg:p-10">
+  <header class="mb-8 border-b pb-6">
+    <h1 class="text-3xl font-extrabold text-indigo-600 mb-2">
+      <i class="fas fa-sitemap mr-3"></i>上下级关系详细展示
+    </h1>
+    <p class="text-slate-500">共加载 41 个用例地址：21 节点 / 20 质押</p>
+  </header>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-blue-500 text-center">
+      <div class="text-xs font-bold text-slate-400 uppercase">节点地址数</div>
+      <div class="text-2xl font-black">21</div>
+    </div>
+    <div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-green-500 text-center">
+      <div class="text-xs font-bold text-slate-400 uppercase">质押地址数</div>
+      <div class="text-2xl font-black">20</div>
+    </div>
+    <div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-orange-500 text-center">
+      <div class="text-xs font-bold text-slate-400 uppercase">涉及总金额</div>
+      <div class="text-2xl font-black">153,000 U</div>
+    </div>
+    <div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-purple-500 text-center">
+      <div class="text-xs font-bold text-slate-400 uppercase">关系族群</div>
+      <div class="text-2xl font-black">3</div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-8">
+    <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
+      <h2 class="text-xl font-bold mb-6 flex items-center">
+        <i class="fas fa-network-wired mr-2 text-indigo-500"></i>
+        关系链图谱 (推荐关系)
+      </h2>
+
+      <div class="space-y-8">
+        <div v-for="tree in trees" :key="tree.id" class="border rounded-xl p-4 bg-slate-50">
+          <div class="mb-4 text-sm font-bold text-indigo-500 bg-indigo-50 inline-block px-3 py-1 rounded-full">
+            顶级族群: {{ tree.name }}
+          </div>
+          <tree-item :item="tree"></tree-item>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<template id="tree-item-template">
+  <div class="ml-4 md:ml-8 mt-3">
+    <div class="flex items-start group relative">
+      <div class="absolute -left-6 top-4 w-6 h-px bg-slate-300"></div>
+
+      <div :class="[
+                    'p-3 rounded-lg border shadow-sm transition-all duration-200 hover:shadow-md w-full max-w-2xl',
+                    item.category === '质押' ? 'bg-green-50 border-green-100' : 'bg-white border-slate-200'
+                ]">
+        <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold text-sm" :class="item.category === '质押' ? 'text-green-700' : 'text-slate-700'">
+                            {{ item.name }}
+                            <span class="ml-2 px-1.5 py-0.5 bg-slate-100 text-[10px] rounded text-slate-400">#{{ item.id }}</span>
+                        </span>
+          <span class="text-xs font-mono text-slate-400">{{ formatAddr(item.address) }}</span>
+        </div>
+
+        <div class="flex gap-2 mb-2 text-xs">
+          <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded">{{ item.amount }}U</span>
+          <span v-if="item.profit" class="px-2 py-0.5 bg-orange-100 text-orange-700 rounded">收益用例节点</span>
+        </div>
+
+        <div v-if="item.profit" class="mt-2 text-[11px] bg-white/50 p-2 rounded border border-dashed border-orange-200 text-slate-600">
+          <div class="font-bold text-orange-600 mb-1">收益模型计算：</div>
+          <ul class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+            <li>静态: {{ item.profit.static }}</li>
+            <li>直推: {{ item.profit.direct }}</li>
+            <li>合计: {{ item.profit.total }}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="item.children && item.children.length" class="border-l-2 border-slate-200 ml-1">
+      <tree-item v-for="child in item.children" :key="child.id" :item="child"></tree-item>
+    </div>
+  </div>
+</template>
+
+<script>
+  const { createApp } = Vue;
+
+  const TreeItem = {
+    name: 'tree-item',
+    template: '#tree-item-template',
+    props: ['item'],
+    methods: {
+      formatAddr(addr) {
+        return addr ? addr.substring(0, 8) + '...' + addr.substring(addr.length - 4) : '';
+      }
+    }
+  };
+
+  createApp({
+    components: { TreeItem },
+    setup() {
+      // 根据提供的数据进行结构化处理
+      const trees = [
+        {
+          id: 1, name: "500节点用例 1", amount: 500, category: "节点", address: "0x6884d36c440727060aed0cc718f464b1abb1ce27",
+          children: [
+            { id: 2, name: "500节点用例 2", amount: 500, category: "节点", address: "0x29a2ca02d1c16e253727a640d8a2237d4b40ea99", children: [
+                { id: 3, name: "500节点用例 3", amount: 500, category: "节点", address: "0xc9ebf822096fcf58d897d5f22ba69a513b07ec77", children: [
+                    { id: 4, name: "500节点用例 4", amount: 500, category: "节点", address: "0xdd7b7cb257370797f4ad07db9788c91419482a51", children: [
+                        { id: 6, name: "500节点用例 6", amount: 500, category: "节点", address: "0x87ab68f5646b1821a110a50ab9bc0b489f403e96", children: [] },
+                        { id: 17, name: "10000节点用例 17", amount: 10000, category: "节点", address: "0xc39dd2c34ecb7b566b4c8c53738ddc615a7f8172", children: [] },
+                        { id: "S5", name: "1200质押用例 5", amount: 1200, category: "质押", address: "0xcd04264a167103fe9c3804f87bc09983c7f4751f", children: [
+                            { id: "S19", name: "2500质押用例 19", amount: 2500, category: "质押", address: "0x531557bc1053d42af445aed5c7e56747f34ba6ab", children: [] },
+                            { id: "S20", name: "2500质押用例 20", amount: 2500, category: "质押", address: "0x4af6a2d24affd4fdca286084c927bcd4c2547c23", children: [] }
+                          ]}
+                      ]}
+                  ]}
+              ]},
+            { id: 16, name: "10000节点用例 16", amount: 10000, category: "节点", address: "0xc67b7c03f80dd24a6253a77c2cb7f158852f886f", children: [
+                { id: 7, name: "500节点用例 7", amount: 500, category: "节点", address: "0xe75a01b79d4bed1142128cb234fe32d613144853", profit: { static: "2U * 3天", direct: "0", total: "6U" }, children: [] }
+              ]}
+          ]
+        },
+        {
+          id: 11, name: "10000节点用例 11 (顶级推荐人)", amount: 10000, category: "节点", address: "0xe57356f4b161beb3bf613390ecfa73e21cf5d257",
+          children: [
+            { id: 12, name: "10000节点用例 12", amount: 10000, address: "0xbb1f5741...", children: [
+                { id: 13, name: "10000节点用例 13", amount: 10000, address: "0xf22ca54e...", children: [
+                    { id: 14, name: "10000节点用例 14", amount: 10000, address: "0xc85504b0...", children: [
+                        { id: 15, name: "10000节点用例 15", amount: 10000, address: "0x87cfd1fc...", children: [] }
+                      ]}
+                  ]}
+              ]},
+            { id: 18, name: "10000节点用例 18", amount: 10000, address: "0x7d3e6963...", children: [] },
+            { id: 5, name: "500节点用例 5", amount: 500, address: "0x324028da...", children: [] },
+            { id: "S11-S18", name: "质押集群(S11-S18)", amount: 40000, category: "质押", address: "Multiple Addresses", children: [] }
+          ]
+        },
+        {
+          id: 8, name: "500节点用例 8", amount: 500, category: "节点", address: "0x757e5e15588798bd0e6b9ea2060a664790832c8b", profit: { static: "2U * 3天", direct: "0", total: "6U" },
+          children: [
+            { id: 9, name: "500节点用例 9", amount: 500, address: "0xa21390d4...", children: [
+                { id: 10, name: "500节点用例 10", amount: 500, address: "0xca1cbe1d...", profit: { static: "2U * 3天", direct: "无", total: "6U" }, children: [] }
+              ]},
+            { id: 19, name: "10000节点用例 19", amount: 10000, address: "0x41d3ecf4...", children: [] },
+            { id: 20, name: "10000节点用例 20", amount: 10000, address: "0x4354a411...", children: [] },
+            { id: 21, name: "10000节点用例 21", amount: 10000, address: "0x70cbaa41...", children: [
+                { id: "S1", name: "200质押用例 1", amount: 200, category: "质押", address: "0xa31e21ed...", children: [] }
+              ]}
+          ]
+        }
+      ];
+
+      return { trees };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>

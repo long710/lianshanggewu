@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ethereum Transaction Principles</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* 动态背景 */
+    .hero-bg {
+      background: radial-gradient(circle at 50% 50%, #e0f2fe 0%, #f8fafc 100%);
+    }
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.6;
+      z-index: 0;
+    }
+    .blob-1 { top: -10%; right: -10%; width: 600px; height: 600px; background: #bfdbfe; }
+    .blob-2 { bottom: -10%; left: -10%; width: 500px; height: 500px; background: #dbeafe; }
+
+    /* 幻灯片基础 */
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.6s ease-in-out;
+      padding: 40px 80px;
+      box-sizing: border-box;
+      flex-direction: column;
+      justify-content: center;
+      z-index: 10;
+    }
+    .slide.active { display: flex; opacity: 1; }
+
+    /* 入场动画 */
+    .slide.active .animate-up {
+      animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+    @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+
+    /* 代码块样式 */
+    .code-window {
+      background: #1e293b;
+      border-radius: 12px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+      overflow: hidden;
+      font-family: 'JetBrains Mono', monospace;
+      border: 1px solid #334155;
+    }
+    .code-header {
+      background: #0f172a;
+      padding: 12px 16px;
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid #334155;
+    }
+    .win-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-green { background: #22c55e; }
+    .code-content {
+      padding: 24px;
+      color: #e2e8f0;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+    .key { color: #93c5fd; }
+    .string { color: #86efac; }
+    .number { color: #fca5a5; }
+    .comment { color: #64748b; font-style: italic; }
+
+    /* 概念卡片 */
+    .concept-card {
+      background: white; padding: 24px; border-radius: 16px;
+      border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s;
+    }
+    .concept-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+
+    /* 分栏布局 */
+    .split-layout { display: flex; gap: 60px; height: 100%; align-items: center; }
+    .text-col { flex: 1; }
+    .vis-col { flex: 1; display: flex; justify-content: center; align-items: center; }
+
+    /* 导航控制 */
+    .nav-btn {
+      position: fixed; bottom: 40px; z-index: 50;
+      width: 56px; height: 56px; border-radius: 50%;
+      background: white; border: 1px solid #e2e8f0;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.2s; color: #1e293b;
+    }
+    .nav-btn:hover { background: #2563eb; color: white; transform: scale(1.1); }
+    .prev-btn { right: 120px; }
+    .next-btn { right: 40px; }
+    .progress-bar { position: fixed; bottom: 0; left: 0; height: 4px; background: #2563eb; width: 0%; transition: width 0.4s; z-index: 50; }
+    .page-num { position: fixed; bottom: 40px; left: 40px; font-family: monospace; color: #94a3b8; font-size: 14px; z-index: 50; }
+
+    /* ========================================= */
+    /* 状态机动画专用样式 (EVM Animation) */
+    /* ========================================= */
+    .evm-stage {
+      position: relative; width: 100%; height: 400px;
+      background: #f8fafc; border-radius: 24px; border: 1px solid #e2e8f0;
+      overflow: hidden; display: flex; align-items: center; justify-content: center;
+    }
+
+    /* 状态块 */
+    .state-block {
+      width: 140px; height: 160px; background: white; border: 2px solid #cbd5e1;
+      border-radius: 12px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; position: absolute;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.05); z-index: 10;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .state-header {
+      font-size: 12px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 10px;
+    }
+    .state-value {
+      font-size: 24px; font-weight: bold; color: #1e293b;
+    }
+    .state-sub { font-size: 10px; color: #94a3b8; margin-top: 5px; }
+
+    /* 交易小纸条 */
+    .tx-note {
+      width: 100px; height: 120px; background: #fffbeb; border: 1px solid #fcd34d;
+      position: absolute; left: 180px; top: 140px; z-index: 20;
+      display: flex; flex-direction: column; padding: 10px; box-sizing: border-box;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05); transform: rotate(-5deg); opacity: 0;
+      transition: all 0.5s;
+    }
+    .tx-line { height: 6px; background: #e2e8f0; margin-bottom: 6px; border-radius: 3px; }
+    .tx-line.short { width: 60%; }
+
+    /* EVM 核心 */
+    .evm-core {
+      width: 100px; height: 100px; border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0);
+      display: flex; align-items: center; justify-content: center; color: white;
+      font-size: 24px; box-shadow: 0 0 30px rgba(37, 99, 235, 0.3); z-index: 5;
+      transition: all 0.4s;
+    }
+
+    .arrow-connect {
+      position: absolute; height: 2px; background: #cbd5e1; top: 50%;
+      width: 0; transition: width 0.5s;
+    }
+
+    /* 动画控制面板 */
+    .anim-panel {
+      position: absolute; bottom: 30px; right: 30px; width: 320px;
+      background: white; padding: 20px; border-radius: 16px;
+      box-shadow: 0 10px 30px -5px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; z-index: 50;
+    }
+
+    /* 签名印章 */
+    .wax-seal {
+      width: 120px; height: 120px; background: #ef4444; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.9); border: 4px solid #b91c1c;
+      box-shadow: 0 4px 10px rgba(185, 28, 28, 0.4), inset 0 0 20px rgba(0,0,0,0.2);
+      font-family: serif; font-weight: bold; font-size: 20px;
+      transform: rotate(-15deg);
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<div class="page-num" id="pageNum">01 / 08</div>
+
+<div id="deck">
+
+  <div class="slide active hero-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="max-w-5xl mx-auto w-full z-10 flex flex-col items-center text-center animate-up">
+      <div class="mb-8 inline-flex items-center px-4 py-2 bg-white/60 backdrop-blur-sm border border-blue-100 rounded-full text-blue-600 font-bold text-sm tracking-widest shadow-sm">
+        <span class="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
+        ETHEREUM DEEP DIVE
+      </div>
+      <h1 class="text-7xl font-black text-slate-900 mb-6 leading-tight tracking-tight">
+        交易原理 <br>
+        <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Transaction Principles</span>
+      </h1>
+      <p class="text-2xl text-slate-500 max-w-2xl mx-auto mb-12 font-light leading-relaxed">
+        有了静态的账户，如何让资产动起来？<br>
+        解构 <strong class="text-slate-800">状态机</strong>、<strong class="text-slate-800">Nonce</strong> 与 <strong class="text-slate-800">数字签名</strong>。
+      </p>
+      <div class="flex gap-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+          <i class="fas fa-file-code text-blue-500 mb-2 block text-2xl"></i>
+          <span class="text-xs font-bold text-slate-600">Structure</span>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+          <i class="fas fa-gas-pump text-green-500 mb-2 block text-2xl"></i>
+          <span class="text-xs font-bold text-slate-600">Gas</span>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+          <i class="fas fa-signature text-red-500 mb-2 block text-2xl"></i>
+          <span class="text-xs font-bold text-slate-600">Signature</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="max-w-6xl mx-auto w-full h-full flex flex-col justify-center">
+      <div class="mb-10 animate-up">
+        <h2 class="text-5xl font-bold text-slate-900">1. 什么是交易 (Transaction)?</h2>
+      </div>
+
+      <div class="grid grid-cols-2 gap-16 h-2/3 items-center">
+        <div class="bg-red-50 rounded-2xl p-10 border border-red-100 h-full flex flex-col justify-center animate-up delay-1 relative overflow-hidden">
+          <div class="absolute -right-10 -bottom-10 text-red-100 text-9xl"><i class="fas fa-times-circle"></i></div>
+          <h3 class="text-2xl font-bold text-red-600 mb-4"><i class="fas fa-exclamation-triangle mr-2"></i>常见误区</h3>
+          <p class="text-slate-700 text-lg leading-relaxed">
+            很多人以为交易是“把比特币文件从我的手机发到你的手机”。
+          </p>
+          <p class="mt-6 text-xl font-bold text-red-500">错！区块链没有“文件传输”。</p>
+        </div>
+
+        <div class="bg-green-50 rounded-2xl p-10 border border-green-100 h-full flex flex-col justify-center animate-up delay-2 relative overflow-hidden">
+          <div class="absolute -right-10 -bottom-10 text-green-100 text-9xl"><i class="fas fa-check-circle"></i></div>
+          <h3 class="text-2xl font-bold text-green-600 mb-4"><i class="fas fa-lightbulb mr-2"></i>本质真相</h3>
+          <p class="text-slate-700 text-lg leading-relaxed">
+            交易其实是一张**“小纸条”**。
+          </p>
+          <ul class="mt-4 space-y-3 text-slate-600">
+            <li><i class="fas fa-pen-nib text-green-500 mr-2"></i> 内容：“我同意从张三划走1个币给李四”</li>
+            <li><i class="fas fa-bullhorn text-green-500 mr-2"></i> 动作：全网广播</li>
+            <li><i class="fas fa-book text-green-500 mr-2"></i> 结果：矿工修改**全球总账本**</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="split-layout">
+      <div class="text-col animate-up">
+        <div class="inline-block px-3 py-1 bg-purple-100 text-purple-700 rounded text-xs font-bold mb-4">底层逻辑</div>
+        <h2 class="text-4xl font-bold text-slate-900 mb-6">以太坊状态机</h2>
+        <p class="text-lg text-slate-600 mb-6">
+          <strong>State Machine</strong>: 交易是触发状态机翻页的唯一驱动力。
+        </p>
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <p class="font-mono text-sm text-slate-500 mb-2">Formula:</p>
+          <p class="font-bold text-xl text-slate-800">
+            σ<sub>n+1</sub> ≡ Υ(σ<sub>n</sub>, T)
+          </p>
+          <p class="mt-2 text-sm text-slate-500">
+            (新状态 = 旧状态 + 交易处理)
+          </p>
+        </div>
+      </div>
+
+      <div class="vis-col animate-up delay-1" style="flex: 1.5;">
+        <div class="evm-stage">
+          <div class="state-block" id="anim-state-n" style="left: 60px;">
+            <div class="state-header">Block N</div>
+            <div class="state-value">100 ETH</div>
+            <div class="state-sub">Account A</div>
+          </div>
+
+          <div class="tx-note" id="anim-tx">
+            <div class="text-xs font-bold text-slate-500 mb-2">Tx</div>
+            <div class="tx-line"></div>
+            <div class="tx-line"></div>
+            <div class="tx-line short"></div>
+            <div class="mt-auto text-xs font-mono text-red-500 font-bold">-10 ETH</div>
+          </div>
+
+          <div class="evm-core" id="anim-evm">
+            <i class="fas fa-cogs"></i>
+          </div>
+
+          <div class="state-block" id="anim-state-next" style="left: 60px; opacity: 0; transform: scale(0.8);">
+            <div class="state-header">Block N+1</div>
+            <div class="state-value text-green-600">90 ETH</div>
+            <div class="state-sub">Account A</div>
+          </div>
+
+          <div class="anim-panel">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-xs font-bold text-blue-600 uppercase" id="anim-status">Ready</span>
+              <button onclick="runEvmAnim()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition">
+                <i class="fas fa-play mr-2"></i>执行交易
+              </button>
+            </div>
+            <p class="text-xs text-slate-500" id="anim-desc">点击按钮演示状态转换过程。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="split-layout">
+      <div class="text-col animate-up">
+        <h2 class="text-4xl font-bold text-slate-900 mb-6">2. 交易的解剖 (Anatomy)</h2>
+        <p class="text-slate-600 mb-8 text-lg">
+          如果不理解结构，就永远只是看热闹。一笔原始交易数据包里，**严格包含**右侧字段。
+        </p>
+        <div class="space-y-4">
+          <div class="flex items-center text-slate-700">
+            <i class="fas fa-sort-numeric-down text-blue-500 w-8"></i>
+            <span><strong>Nonce</strong>: 防止重放的计数器</span>
+          </div>
+          <div class="flex items-center text-slate-700">
+            <i class="fas fa-gas-pump text-green-500 w-8"></i>
+            <span><strong>Gas</strong>: 必须支付的过路费</span>
+          </div>
+          <div class="flex items-center text-slate-700">
+            <i class="fas fa-file-signature text-red-500 w-8"></i>
+            <span><strong>v, r, s</strong>: 核心数字签名</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="vis-col animate-up delay-2" style="flex: 1.2;">
+        <div class="code-window w-full">
+          <div class="code-header">
+            <div class="win-dot dot-red"></div>
+            <div class="win-dot dot-yellow"></div>
+            <div class="win-dot dot-green"></div>
+            <span class="text-slate-400 text-xs ml-2 font-mono">transaction.json</span>
+          </div>
+          <div class="code-content">
+<pre class="m-0">
+{
+  <span class="key">"nonce"</span>: <span class="number">5</span>,               <span class="comment">// 计数器</span>
+  <span class="key">"gasPrice"</span>: <span class="string">"20 Gwei"</span>,    <span class="comment">// 燃料单价</span>
+  <span class="key">"gasLimit"</span>: <span class="number">21000</span>,        <span class="comment">// 燃料上限</span>
+  <span class="key">"to"</span>: <span class="string">"0x742d...44e"</span>,     <span class="comment">// 接收方</span>
+  <span class="key">"value"</span>: <span class="string">"10000000"</span>,      <span class="comment">// 转账金额</span>
+  <span class="key">"data"</span>: <span class="string">"0x"</span>,             <span class="comment">// 附加数据</span>
+  <span class="key">"v, r, s"</span>: <span class="string">"..."</span>          <span class="comment">// 数字签名</span>
+}
+</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="max-w-5xl mx-auto w-full">
+      <div class="text-center mb-10 animate-up">
+        <div class="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold mb-4">关键字段 A</div>
+        <h2 class="text-4xl font-bold text-slate-900">Nonce (计数器)</h2>
+        <p class="text-slate-500 mt-2">银行柜台排队取号，必须按 1号、2号、3号顺序办理。</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-8 animate-up delay-1">
+        <div class="concept-card border-l-4 border-blue-500">
+          <div class="flex items-center mb-4">
+            <div class="bg-blue-100 p-3 rounded-full text-blue-600 mr-4"><i class="fas fa-shield-alt text-xl"></i></div>
+            <h3 class="text-xl font-bold text-slate-800">防止重放攻击 (Replay Attack)</h3>
+          </div>
+          <p class="text-slate-600 text-sm leading-relaxed">
+            如果你给朋友转了10块钱，黑客截获数据包想广播100次把你的钱扣光？<br>
+            <strong class="text-blue-600">不可能。</strong><br>
+            网络会检查："Nonce 0 刚才已经处理过了，这个数据包无效。"
+          </p>
+        </div>
+
+        <div class="concept-card border-l-4 border-indigo-500">
+          <div class="flex items-center mb-4">
+            <div class="bg-indigo-100 p-3 rounded-full text-indigo-600 mr-4"><i class="fas fa-list-ol text-xl"></i></div>
+            <h3 class="text-xl font-bold text-slate-800">严格顺序执行</h3>
+          </div>
+          <p class="text-slate-600 text-sm leading-relaxed">
+            如果 Nonce 0 因为给的小费太少卡住了，那么你发出的 Nonce 1, 2... 全部会在后面排队。<br>
+            <strong class="text-indigo-600">必须先处理完 0，才能处理 1。</strong>
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-12 flex justify-center items-center gap-4 animate-up delay-2 opacity-50">
+        <div class="bg-slate-200 px-4 py-2 rounded text-slate-500 font-mono text-sm">Nonce 0 (Done)</div>
+        <i class="fas fa-arrow-right text-slate-300"></i>
+        <div class="bg-blue-600 text-white px-4 py-2 rounded font-mono text-sm shadow-lg">Nonce 1 (Processing)</div>
+        <i class="fas fa-arrow-right text-slate-300"></i>
+        <div class="bg-slate-200 px-4 py-2 rounded text-slate-500 font-mono text-sm">Nonce 2 (Waiting)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="split-layout">
+      <div class="text-col animate-up">
+        <div class="inline-block px-3 py-1 bg-green-100 text-green-700 rounded text-xs font-bold mb-4">关键字段 B</div>
+        <h2 class="text-4xl font-bold text-slate-900 mb-4">Gas (燃料)</h2>
+        <p class="text-lg text-slate-600 mb-6">
+          以太坊是“世界计算机”。占用全球矿工的硬盘和算力，必须交**过路费**。
+        </p>
+        <ul class="space-y-4 mb-8">
+          <li class="flex items-start">
+            <i class="fas fa-check text-green-500 mt-1 mr-3"></i>
+            <span class="text-slate-600 text-sm">防止死循环攻击 (`while(true)`)</span>
+          </li>
+          <li class="flex items-start">
+            <i class="fas fa-check text-green-500 mt-1 mr-3"></i>
+            <span class="text-slate-600 text-sm">EIP-1559 机制：基础费销毁 + 小费给矿工</span>
+          </li>
+        </ul>
+      </div>
+      <div class="vis-col animate-up delay-2">
+        <div class="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 w-full max-w-md">
+          <h3 class="text-center font-bold text-slate-800 mb-6">费用去向 (EIP-1559)</h3>
+
+          <div class="flex flex-col gap-2">
+            <div class="h-24 bg-orange-500 rounded-lg flex items-center justify-center text-white font-bold relative overflow-hidden group">
+              <div class="absolute inset-0 bg-orange-600 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
+              <span class="relative z-10 flex flex-col items-center">
+                                <i class="fas fa-fire mb-1"></i>
+                                Base Fee (销毁/Burn)
+                            </span>
+            </div>
+
+            <div class="text-center text-slate-400 text-xs my-1">+</div>
+
+            <div class="h-12 bg-green-500 rounded-lg flex items-center justify-center text-white font-bold">
+                            <span class="flex items-center gap-2">
+                                <i class="fas fa-hand-holding-usd"></i> Priority Fee (小费)
+                            </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="max-w-5xl mx-auto w-full text-center">
+      <div class="animate-up">
+        <div class="inline-block px-3 py-1 bg-red-100 text-red-700 rounded text-xs font-bold mb-4">关键字段 C</div>
+        <h2 class="text-4xl font-bold text-slate-900 mb-4">v, r, s (数字签名)</h2>
+        <p class="text-xl text-slate-500 mb-12">
+          不需要看你的私钥（印章戒指），只看信封上的红印（签名）。
+        </p>
+      </div>
+
+      <div class="bg-white rounded-2xl p-10 shadow-xl border border-slate-100 inline-block text-left animate-up delay-1 relative">
+        <div class="absolute -top-10 -right-10 wax-seal">
+          SIGNED
+        </div>
+
+        <div class="space-y-6">
+          <div>
+            <p class="text-xs font-bold text-slate-400 uppercase mb-2">生成签名 (你的钱包)</p>
+            <div class="bg-slate-800 text-white p-4 rounded-lg font-mono text-sm">
+              Sign( Keccak256(数据), <span class="text-red-400">私钥</span> ) = {v, r, s}
+            </div>
+          </div>
+
+          <div class="flex justify-center text-slate-300"><i class="fas fa-arrow-down"></i></div>
+
+          <div>
+            <p class="text-xs font-bold text-slate-400 uppercase mb-2">验证签名 (矿工)</p>
+            <div class="bg-slate-100 text-slate-800 p-4 rounded-lg font-mono text-sm border border-slate-300">
+              Recover( {v, r, s}, 数据 ) == <span class="text-green-600 font-bold">发送者地址</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="mt-6 text-sm text-slate-500 text-center">
+          <i class="fas fa-lock text-green-500 mr-2"></i> 整个过程完全不需要你的私钥联网。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="max-w-4xl mx-auto text-center flex flex-col items-center animate-up">
+      <h1 class="text-6xl font-black text-slate-900 mb-8">下一章预告</h1>
+      <p class="text-2xl text-slate-500 mb-12">
+        既然有了交易，那些“只读”的查询是如何工作的？<br>
+        我们将深入 <strong class="text-blue-600">RPC 节点</strong> 与 <strong class="text-blue-600">数据索引</strong>。
+      </p>
+      <div class="flex gap-6">
+        <button class="px-8 py-4 bg-slate-900 text-white rounded-full font-bold shadow-lg hover:bg-slate-800 transition" onclick="location.reload()">
+          <i class="fas fa-redo mr-2"></i> 重播演示
+        </button>
+      </div>
+      <div class="mt-16 text-slate-400 text-sm">© 2026 Ethereum Learning Series</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="nav-btn prev-btn" id="prevBtn" onclick="changeSlide(-1)"><i class="fas fa-arrow-left"></i></div>
+<div class="nav-btn next-btn" id="nextBtn" onclick="changeSlide(1)"><i class="fas fa-arrow-right"></i></div>
+
+<script>
+  // ==========================================
+  // 幻灯片控制逻辑
+  // ==========================================
+  let currentSlide = 0;
+  const slides = document.querySelectorAll('.slide');
+  const progressBar = document.getElementById('progressBar');
+  const pageNum = document.getElementById('pageNum');
+  const totalSlides = slides.length;
+
+  function updateUI() {
+    slides.forEach((slide, index) => {
+      slide.classList.remove('active');
+      if (index === currentSlide) slide.classList.add('active');
+    });
+    const progress = ((currentSlide + 1) / totalSlides) * 100;
+    progressBar.style.width = `${progress}%`;
+    pageNum.textContent = `${String(currentSlide + 1).padStart(2, '0')} / ${String(totalSlides).padStart(2, '0')}`;
+
+    document.getElementById('prevBtn').style.opacity = currentSlide === 0 ? '0.3' : '1';
+    document.getElementById('prevBtn').style.pointerEvents = currentSlide === 0 ? 'none' : 'auto';
+    document.getElementById('nextBtn').style.opacity = currentSlide === totalSlides - 1 ? '0.3' : '1';
+    document.getElementById('nextBtn').style.pointerEvents = currentSlide === totalSlides - 1 ? 'none' : 'auto';
+  }
+
+  function changeSlide(direction) {
+    const nextIndex = currentSlide + direction;
+    if (nextIndex >= 0 && nextIndex < totalSlides) {
+      currentSlide = nextIndex;
+      updateUI();
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') changeSlide(1);
+    if (e.key === 'ArrowLeft') changeSlide(-1);
+  });
+
+  updateUI();
+
+  // ==========================================
+  // 状态机动画逻辑 (Slide 3)
+  // ==========================================
+  const animStateN = document.getElementById('anim-state-n');
+  const animTx = document.getElementById('anim-tx');
+  const animEvm = document.getElementById('anim-evm');
+  const animStateNext = document.getElementById('anim-state-next');
+  const animStatus = document.getElementById('anim-status');
+  const animDesc = document.getElementById('anim-desc');
+  let isAnimating = false;
+
+  function runEvmAnim() {
+    if(isAnimating) return;
+    isAnimating = true;
+
+    // Reset
+    animStateN.style.transform = 'translateX(0) scale(1)';
+    animStateN.style.opacity = '1';
+    animStateNext.style.opacity = '0';
+    animStateNext.style.left = '60px'; // Reset position
+    animTx.style.opacity = '0';
+    animTx.style.left = '180px';
+    animTx.style.top = '140px';
+    animEvm.style.transform = 'translate(-50%, -50%) scale(0)';
+
+    animStatus.innerText = "1. 广播交易";
+    animDesc.innerText = "用户发出包含转账意图的签名消息 (Tx)。";
+
+    // Step 1: Tx Appears
+    setTimeout(() => {
+      animTx.style.opacity = '1';
+      animTx.style.transform = 'rotate(0deg)';
+    }, 100);
+
+    // Step 2: Move to EVM
+    setTimeout(() => {
+      animStatus.innerText = "2. EVM 处理";
+      animDesc.innerText = "状态机（EVM）接收当前状态和交易输入。";
+
+      // Move Left State to Center Left
+      animStateN.style.transform = 'translateX(80px)';
+      // Move Tx to Center
+      animTx.style.left = '45%';
+      animTx.style.top = '140px';
+
+      // Show EVM
+      animEvm.style.transform = 'translate(-50%, -50%) scale(1) rotate(0deg)';
+    }, 1200);
+
+    // Step 3: Calculation (Spinning)
+    setTimeout(() => {
+      animEvm.style.transform = 'translate(-50%, -50%) scale(1.1) rotate(360deg)';
+      animTx.style.opacity = '0'; // Consumed
+    }, 2200);
+
+    // Step 4: Output New State
+    setTimeout(() => {
+      animStatus.innerText = "3. 状态翻页";
+      animDesc.innerText = "生成 Block N+1，账户余额更新。";
+
+      // Hide Old State
+      animStateN.style.opacity = '0';
+
+      // Show New State
+      animStateNext.style.left = '50%'; // Centered
+      animStateNext.style.transform = 'translate(-50%, 0) scale(1.2)';
+      animStateNext.style.opacity = '1';
+
+      // Hide EVM
+      animEvm.style.transform = 'translate(-50%, -50%) scale(0)';
+    }, 3200);
+
+    setTimeout(() => {
+      isAnimating = false;
+      animStatus.innerText = "Finished";
+    }, 4500);
+  }
+</script>
+</body>
+</html>

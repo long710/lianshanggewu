@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChooseMe: Decentralized Prediction BaaS Architecture</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1e40af;
+      --accent: #10b981;
+      --bg-dark: #0f172a;
+      --card-bg: rgba(255, 255, 255, 0.05);
+      --border: rgba(255, 255, 255, 0.1);
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      margin: 0;
+      overflow: hidden;
+      background-image:
+              radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.1) 0%, transparent 40%),
+              radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
+    }
+
+    /* 幻灯片容器布局 */
+    #deck {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      opacity: 0;
+      transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      padding: 4rem 6rem;
+      box-sizing: border-box;
+      z-index: 10;
+    }
+
+    .slide.active {
+      display: flex;
+      flex-direction: column;
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .slide.exit-left { transform: translateX(-50px); opacity: 0; }
+    .slide.enter-right { transform: translateX(50px); opacity: 0; }
+
+    /* 网格与装饰 */
+    .bg-grid {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 50px 50px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* 标题样式 */
+    h2.section-title {
+      font-size: 3rem;
+      font-weight: 900;
+      letter-spacing: -0.05em;
+      background: linear-gradient(to right, #fff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    h2.section-title::before {
+      content: '';
+      display: block;
+      width: 8px;
+      height: 48px;
+      background: var(--primary);
+      border-radius: 4px;
+    }
+
+    /* 卡片设计 */
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 1.5rem;
+      padding: 2rem;
+      transition: all 0.3s ease;
+    }
+
+    .glass-card:hover {
+      border-color: rgba(37, 99, 235, 0.5);
+      background: rgba(255, 255, 255, 0.08);
+      transform: translateY(-4px);
+    }
+
+    /* 标签 */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: rgba(37, 99, 235, 0.2);
+      color: #60a5fa;
+      border: 1px solid rgba(37, 99, 235, 0.3);
+      margin-bottom: 1rem;
+    }
+
+    /* 导航控制 */
+    .controls {
+      position: fixed;
+      bottom: 3rem;
+      right: 4rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      z-index: 100;
+    }
+
+    .nav-btn {
+      width: 3.5rem;
+      height: 3.5rem;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .nav-btn:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      transform: scale(1.1);
+    }
+
+    .progress-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.05);
+      z-index: 100;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--primary);
+      width: 0%;
+      transition: width 0.4s ease;
+      box-shadow: 0 0 20px var(--primary);
+    }
+
+    .slide-number {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dim);
+      font-size: 0.875rem;
+    }
+
+    /* 代码展示 */
+    .code-block {
+      font-family: 'JetBrains Mono', monospace;
+      background: #000;
+      padding: 1.5rem;
+      border-radius: 1rem;
+      border: 1px solid #334155;
+      color: #d1d5db;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+
+    /* 流程图示 */
+    .flow-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      position: relative;
+    }
+
+    .flow-arrow {
+      color: var(--text-dim);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: translateX(0); opacity: 0.5; }
+      50% { transform: translateX(10px); opacity: 1; }
+      100% { transform: translateX(0); opacity: 0.5; }
+    }
+
+    /* 演讲稿侧栏 (按'N'开启) */
+    #speaker-notes {
+      position: fixed;
+      top: 0;
+      right: -400px;
+      width: 400px;
+      height: 100%;
+      background: #1e293b;
+      border-left: 1px solid var(--border);
+      z-index: 1000;
+      padding: 2rem;
+      transition: right 0.4s ease;
+      box-shadow: -20px 0 50px rgba(0,0,0,0.5);
+      overflow-y: auto;
+    }
+
+    #speaker-notes.open { right: 0; }
+
+    .note-title {
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .note-content {
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: #cbd5e1;
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="progress-container"><div class="progress-bar" id="progressBar"></div></div>
+
+<div id="deck">
+
+  <div class="slide active flex items-center justify-center text-center">
+    <div class="max-w-5xl">
+      <div class="badge">Enterprise Infrastructure v1.0</div>
+      <h1 class="text-8xl font-black mb-8 leading-tight tracking-tighter">
+        Choose<span class="text-blue-600">Me</span>
+      </h1>
+      <p class="text-3xl text-slate-400 font-light mb-12">
+        预测市场的链上 <span class="text-white font-medium">CLOB</span> 实现方案与 <span class="text-white font-medium">x402</span> 对接预言机
+      </p>
+      <div class="flex justify-center gap-12 mt-12">
+        <div class="text-left border-l-2 border-blue-600 pl-6">
+          <span class="block text-sm text-slate-500 uppercase font-bold tracking-widest">Presenter</span>
+          <span class="text-2xl font-bold">Jesse</span>
+          <span class="block text-blue-500 font-mono text-sm">CTO @ ChooseMe</span>
+        </div>
+        <div class="text-left border-l-2 border-emerald-500 pl-6">
+          <span class="block text-sm text-slate-500 uppercase font-bold tracking-widest">Architecture</span>
+          <span class="text-2xl font-bold">Hybrid BaaS</span>
+          <span class="block text-emerald-500 font-mono text-sm">Web2 + Web3</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="badge">Section 01: 项目介绍</div>
+    <h2 class="section-title">去中心化事件预测市场 BaaS</h2>
+    <div class="grid grid-cols-12 gap-8 flex-grow">
+      <div class="col-span-4 glass-card flex flex-col justify-center">
+        <i class="fas fa-layer-group text-4xl text-blue-500 mb-6"></i>
+        <h3 class="text-2xl font-bold mb-4">项目概述</h3>
+        <p class="text-slate-400 leading-relaxed mb-6">
+          ChooseMe 是一个完全去中心化的事件预测市场 <strong>BaaS (Blockchain-as-a-Service)</strong> 平台。专为开发者与项目方设计，旨在打破单一应用的局限。
+        </p>
+        <div class="space-y-4">
+          <div class="flex items-center gap-3 text-sm">
+            <i class="fas fa-check-circle text-accent"></i>
+            <span>快速构建与独立运行</span>
+          </div>
+          <div class="flex items-center gap-3 text-sm">
+            <i class="fas fa-check-circle text-accent"></i>
+            <span>资金与费用的彻底解耦</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-span-8 grid grid-cols-2 gap-8">
+        <div class="glass-card">
+          <h4 class="text-xl font-bold mb-4 text-blue-400">核心价值主张</h4>
+          <p class="text-sm text-slate-400 mb-4 leading-relaxed">
+            通过模块化架构与标准化合约组件，将预测市场从“应用”升级为“基础设施”。
+          </p>
+          <ul class="text-xs space-y-3 text-slate-500">
+            <li>• 大幅降低合规与运维成本</li>
+            <li>• 可复制、可定制的基础设施能力</li>
+          </ul>
+        </div>
+        <div class="glass-card bg-blue-900/10">
+          <h4 class="text-xl font-bold mb-4 text-accent">一句话定义</h4>
+          <p class="text-lg font-medium leading-relaxed">
+            ChooseMe = 去中心化 Oracle + 模块化智能合约 + 多链支持 + AI Agent 驱动。
+          </p>
+        </div>
+        <div class="col-span-2 glass-card">
+          <h4 class="text-xl font-bold mb-4">混合型 (Hybrid) 技术逻辑</h4>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            结合链下高性能业务处理 (Web2) 和链上结算 (Web3)。系统不仅支持 C 端用户直接投注，更专门为 B 端项目方设计了接入能力。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="badge">Section 01: 架构深度解析</div>
+    <h2 class="section-title">核心大脑：业务中台 (Off-Chain)</h2>
+    <div class="grid grid-cols-3 gap-8 mb-8">
+      <div class="glass-card">
+        <div class="badge bg-slate-800 border-slate-700">Storage Layer</div>
+        <h4 class="text-xl font-bold mb-4">PostgreSQL 主/从</h4>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          系统的中心存储层，负责保存所有结构化数据，包括事件元数据、用户画像、高频订单记录等。主从架构确保了极高的数据可用性。
+        </p>
+      </div>
+      <div class="glass-card">
+        <div class="badge bg-slate-800 border-slate-700">Transmission Layer</div>
+        <h4 class="text-xl font-bold mb-4">Relayer (中继器)</h4>
+        <p class="text-sm text-slate-600 leading-relaxed mb-4 font-medium">
+          核心枢纽：连接链下与链上。
+        </p>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          当后台创建事件时，Relayer 会监听数据库变化，并将指令发送至链上 <code>event-pod</code>，完成合约实体的创建。
+        </p>
+      </div>
+      <div class="glass-card border-blue-500/30 bg-blue-500/5">
+        <div class="badge bg-blue-900/50">Processing Layer</div>
+        <h4 class="text-xl font-bold mb-4">gRPC Server & Worker</h4>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          <strong>gRPC Server:</strong> 接收来自 <code>event-rs</code> 的高性能情报流。<br>
+          <strong>Worker:</strong> 后台任务处理器，执行数据清洗、状态同步与定时任务。
+        </p>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-8 flex-grow">
+      <div class="glass-card">
+        <h4 class="text-xl font-bold mb-4"><i class="fas fa-api mr-2"></i>API 矩阵</h4>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="p-4 bg-black/30 rounded-lg">
+            <span class="block text-blue-400 font-mono text-xs font-bold mb-1">Admin/Operator API</span>
+            <span class="text-xs text-slate-500 leading-tight">管理 B 端后台与项目配置。</span>
+          </div>
+          <div class="p-4 bg-black/30 rounded-lg">
+            <span class="block text-emerald-400 font-mono text-xs font-bold mb-1">Frontend API</span>
+            <span class="text-xs text-slate-500 leading-tight">为 C 端用户提供实时查询服务。</span>
+          </div>
+        </div>
+      </div>
+      <div class="glass-card">
+        <h4 class="text-xl font-bold mb-4"><i class="fas fa-bolt mr-2"></i>Real-time Sync</h4>
+        <p class="text-sm text-slate-400 mb-4">
+          <strong>Websocket:</strong> 向前端推送实时赔率变化、K 线图更新，确保毫秒级的交互体验。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="badge">Section 01: 架构深度解析</div>
+    <h2 class="section-title">资产锚点：链上合约层 (On-Chain)</h2>
+    <div class="flex-grow flex flex-col gap-8">
+      <div class="glass-card bg-slate-900/50">
+        <h3 class="text-2xl font-bold mb-4 text-blue-400">模块化隔离设计</h3>
+        <p class="text-slate-400 mb-6">
+          架构明确指出“每个 B 端用户都有一套这么一套合约”，实现了彻底的物理隔离与资产确权。
+        </p>
+        <div class="grid grid-cols-3 gap-8">
+          <div class="p-6 bg-white/5 rounded-2xl border border-white/10">
+            <h4 class="text-lg font-bold mb-3">Event-Pod</h4>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              管理单个预测事件的生命周期：创建、开启、暂停、结束。由中台 Relayer 触发创建。
+            </p>
+          </div>
+          <div class="p-6 bg-white/5 rounded-2xl border border-white/10">
+            <h4 class="text-lg font-bold mb-3">Funding-Pod</h4>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              专门的资金池合约。用户投注资金 <strong>直接进入</strong> 合约，非托管设计确保资金不经过数据库。
+            </p>
+          </div>
+          <div class="p-6 bg-white/5 rounded-2xl border border-white/10">
+            <h4 class="text-lg font-bold mb-3">ChooseMe Oracle 合约</h4>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              系统的“终极裁判”。接收预言机提交的 Truth 数据，并触发事件的最终结算。
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-8">
+        <div class="glass-card">
+          <h4 class="text-xl font-bold mb-4">情报引擎 (event-rs)</h4>
+          <p class="text-sm text-slate-400 leading-relaxed mb-4">
+            这是系统的“情报触角”。基于高性能服务，监听现实世界（体育比分、币价 API）并通过 gRPC 同步至中台。
+          </p>
+          <div class="p-3 bg-blue-900/20 border border-blue-800/50 rounded-lg text-xs font-mono">
+            任务 01: 动态事件情报引擎
+          </div>
+        </div>
+        <div class="glass-card">
+          <h4 class="text-xl font-bold mb-4">状态同步器 (event-syncer)</h4>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            负责监听链上智能合约抛出的 Log（如投注、结算），将链上状态实时同步回数据库，确保全平台数据一致性。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="badge">Section 02: 合约项目框架</div>
+    <h2 class="section-title">四大核心模块 (Managers)</h2>
+    <div class="grid grid-cols-4 gap-8 mb-8">
+      <div class="glass-card border-t-4 border-blue-500 h-full">
+        <h4 class="text-xl font-bold mb-4 text-blue-400">EventManager</h4>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          事件大管家。接收 Oracle 结果，精准控制事件的开启、暂停及清算指令。
+        </p>
+      </div>
+      <div class="glass-card border-t-4 border-emerald-500 h-full">
+        <h4 class="text-xl font-bold mb-4 text-emerald-400">OrderBookManager</h4>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          撮合大脑。负责链上 CLOB 订单簿的核心交易逻辑，管理买卖单深度与匹配。
+        </p>
+      </div>
+      <div class="glass-card border-t-4 border-amber-500 h-full">
+        <h4 class="text-xl font-bold mb-4 text-amber-400">FundingManager</h4>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          资金管理中心。强制要求 100% 抵押机制，并负责赢家奖金提取的安全逻辑。
+        </p>
+      </div>
+      <div class="glass-card border-t-4 border-purple-500 h-full">
+        <h4 class="text-xl font-bold mb-4 text-purple-400">FeeVaultManager</h4>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          财务总管。精细化管理平台手续费收入，确保各 B 端项目的费用流向透明。
+        </p>
+      </div>
+    </div>
+    <div class="glass-card bg-emerald-900/10 border-emerald-500/20">
+      <h3 class="text-xl font-bold mb-4 text-emerald-400"><i class="fas fa-shield-virus mr-2"></i>Pod 系统隔离机制 (The Pod System)</h3>
+      <div class="grid grid-cols-2 gap-12">
+        <div>
+          <p class="text-sm text-slate-400 mb-4 leading-relaxed">
+            这是架构的精髓。每个项目方（Dapp-1, Dapp-2）拥有独立的 Pod 集合（Event/OrderBook/Funding/FeeVault）。
+          </p>
+          <div class="flex items-center gap-2 text-xs text-slate-500">
+            <i class="fas fa-info-circle"></i>
+            <span>风险隔离：极端代码漏洞仅限于单一项目池，不影响大盘。</span>
+          </div>
+        </div>
+        <div class="space-y-4">
+          <div class="p-3 bg-black/40 rounded-xl flex justify-between items-center">
+            <span class="text-xs font-bold text-slate-400">Project-1 (Black Line)</span>
+            <span class="text-[10px] bg-slate-800 px-2 py-1 rounded">Independent Pod Set</span>
+          </div>
+          <div class="p-3 bg-black/40 rounded-xl flex justify-between items-center">
+            <span class="text-xs font-bold text-blue-400">Project-2 (Blue Line)</span>
+            <span class="text-[10px] bg-blue-900/30 px-2 py-1 rounded">Independent Settlement</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="badge">Section 03: x402 技术解决方案</div>
+    <h2 class="section-title">唤醒沉睡代码：x402 支付协议</h2>
+    <div class="grid grid-cols-2 gap-12 flex-grow">
+      <div class="space-y-8">
+        <div class="glass-card">
+          <h3 class="text-2xl font-bold mb-4">HTTP 402 原生支付</h3>
+          <p class="text-slate-400 text-sm leading-relaxed mb-6">
+            402 状态码在 1999 年被预留用于“未来的数字支付系统”，ChooseMe 让其在 Web3 时代真正落地。
+          </p>
+          <div class="grid grid-cols-2 gap-4 text-xs">
+            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+              <span class="block text-accent font-bold mb-2">投币式逻辑</span>
+              <span>直接调用 API -> 服务器返回支付要求 -> 钱包转账 -> 拿到数据。</span>
+            </div>
+            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+              <span class="block text-accent font-bold mb-2">零门槛</span>
+              <span>无需注册、无需订阅，用多少付多少。</span>
+            </div>
+          </div>
+        </div>
+        <div class="glass-card bg-slate-900">
+          <h4 class="text-sm font-bold text-blue-400 mb-4 uppercase">Verification Parameters</h4>
+          <div class="grid grid-cols-3 gap-4 text-[10px] font-mono">
+            <div><span class="text-slate-500">amount</span><br>10 Tokens</div>
+            <div><span class="text-slate-500">destination</span><br>0x1ec105...</div>
+            <div><span class="text-slate-500">nonce</span><br>x402_k7m2n9</div>
+          </div>
+        </div>
+      </div>
+      <div class="glass-card overflow-hidden flex flex-col">
+        <h4 class="text-sm font-bold text-slate-500 mb-4 uppercase tracking-widest">Code Implementation (Nonce in Calldata)</h4>
+        <div class="code-block flex-grow mb-4">
+          <span class="text-blue-500">const</span> baseData = tokenContract.interface.encodeFunctionData(<span class="text-emerald-400">"transfer"</span>, [destination, payAmount]);<br>
+          <span class="text-blue-500">const</span> nonceHex = ethers.hexlify(ethers.toUtf8Bytes(nonce));<br>
+          <span class="text-blue-500">const</span> txData = ethers.concat([baseData, nonceHex]); <span class="text-slate-600">//</span><br><br>
+          <span class="text-slate-500">// ERC-20 忽略多余字节，但记录永久保存于链上备查</span>
+        </div>
+        <div class="p-4 bg-accent/10 border border-accent/20 rounded-xl">
+          <p class="text-xs text-accent leading-relaxed">
+            <strong>为什么 Nonce 重要？</strong> 防止重放攻击。每个 Nonce 只能对应一笔交易，确保一笔付款不能被多次冒用。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="badge">Section 03: x402 技术解决方案</div>
+    <h2 class="section-title">六步闭环：x402 交互流程设计</h2>
+    <div class="flex-grow flex items-center justify-center">
+      <div class="grid grid-cols-6 gap-6 w-full relative">
+        <div class="glass-card flex flex-col items-center text-center p-6 border-blue-500/50">
+          <span class="text-2xl font-black mb-2 opacity-20">01</span>
+          <i class="fas fa-paper-plane text-blue-400 mb-4"></i>
+          <h5 class="text-xs font-bold mb-2">白嫖请求</h5>
+          <p class="text-[10px] text-slate-500">客户端不带认证直接发起 GET 请求。</p>
+        </div>
+        <div class="glass-card flex flex-col items-center text-center p-6">
+          <span class="text-2xl font-black mb-2 opacity-20">02</span>
+          <i class="fas fa-exclamation-triangle text-amber-400 mb-4"></i>
+          <h5 class="text-xs font-bold mb-2">返回 402</h5>
+          <p class="text-[10px] text-slate-500">服务端返回支付额、地址与唯一 Nonce。</p>
+        </div>
+        <div class="glass-card flex flex-col items-center text-center p-6">
+          <span class="text-2xl font-black mb-2 opacity-20">03</span>
+          <i class="fas fa-wallet text-emerald-400 mb-4"></i>
+          <h5 class="text-xs font-bold mb-2">链上支付</h5>
+          <p class="text-[10px] text-slate-500">构造交易，将 Nonce 塞入 Data 字段上链。</p>
+        </div>
+        <div class="glass-card flex flex-col items-center text-center p-6">
+          <span class="text-2xl font-black mb-2 opacity-20">04</span>
+          <i class="fas fa-file-invoice text-blue-400 mb-4"></i>
+          <h5 class="text-xs font-bold mb-2">提交证明</h5>
+          <p class="text-[10px] text-slate-500">带上交易哈希与 Nonce 重新发起请求。</p>
+        </div>
+        <div class="glass-card flex flex-col items-center text-center p-6 border-accent/50">
+          <span class="text-2xl font-black mb-2 opacity-20">05</span>
+          <i class="fas fa-search-dollar text-accent mb-4"></i>
+          <h5 class="text-xs font-bold mb-2">链上验证</h5>
+          <p class="text-[10px] text-slate-500">服务端去链上核查 Nonce 与到账状态。</p>
+        </div>
+        <div class="glass-card flex flex-col items-center text-center p-6">
+          <span class="text-2xl font-black mb-2 opacity-20">06</span>
+          <i class="fas fa-key text-purple-400 mb-4"></i>
+          <h5 class="text-xs font-bold mb-2">JWT 收据</h5>
+          <p class="text-[10px] text-slate-500">返回数据并颁发 1 小时有效的 JWT 收据。</p>
+        </div>
+      </div>
+    </div>
+    <div class="mt-12 glass-card bg-blue-900/10">
+      <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Core Innovation Points</h4>
+      <div class="flex justify-between gap-8">
+        <span class="text-xs">• HTTP 402 成为 Web 原生支付能力</span>
+        <span class="text-xs">• Nonce 嵌入 Calldata 实现高效防重放</span>
+        <span class="text-xs">• 去中心化、链上可验证数据源</span>
+        <span class="text-xs">• JWT 收据优化重复支付体验</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="badge">Section 04: 链上订单簿技术解决方案</div>
+    <h2 class="section-title">高频需求 vs 性能限制：CLOB 的挑战</h2>
+    <div class="grid grid-cols-12 gap-8 flex-grow">
+      <div class="col-span-5 glass-card">
+        <h3 class="text-2xl font-bold mb-6">预测市场特性</h3>
+        <div class="space-y-6">
+          <div class="flex gap-4 p-4 bg-white/5 rounded-2xl">
+            <i class="fas fa-random text-blue-500 text-xl"></i>
+            <div class="text-sm">
+              <span class="font-bold block">长尾效应</span>
+              <span class="text-slate-500 leading-relaxed">事件数量极多，单事件流动性可能极度有限。</span>
+            </div>
+          </div>
+          <div class="flex gap-4 p-4 bg-white/5 rounded-2xl">
+            <i class="fas fa-tachometer-alt text-accent text-xl"></i>
+            <div class="text-sm">
+              <span class="font-bold block">性能矛盾</span>
+              <span class="text-slate-500 leading-relaxed">高频交易需求与通用公链性能限制之间的天然冲突。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-span-7 grid grid-rows-2 gap-8">
+        <div class="glass-card border-l-4 border-blue-500">
+          <h4 class="text-xl font-bold mb-2">混合限价订单簿 (Hybrid CLOB)</h4>
+          <p class="text-xs text-slate-400 mb-4 leading-relaxed">目前主流（Polymarket）采用的方案，追求极致交易体验。</p>
+          <div class="flex gap-6 text-[10px]">
+            <div class="flex-grow p-3 bg-black/40 rounded-xl">
+              <span class="text-blue-400 font-bold block mb-1">链下撮合 (Off-chain)</span>
+              <span>挂单、撤单、撮合在高性能服务器进行，通过 EIP-712 签名授权。</span>
+            </div>
+            <div class="flex-grow p-3 bg-black/40 rounded-xl">
+              <span class="text-emerald-400 font-bold block mb-1">链上结算 (On-chain)</span>
+              <span>撮合成功后 Operator 打包上链，验证签名并执行资产转移。</span>
+            </div>
+          </div>
+        </div>
+        <div class="glass-card border-l-4 border-emerald-500">
+          <h4 class="text-xl font-bold mb-2">全链上订单簿 (Fully On-Chain)</h4>
+          <p class="text-xs text-slate-400 mb-4 leading-relaxed">极致去中心化，依托高性能公链（Solana, Sui）。</p>
+          <div class="flex gap-6 text-[10px]">
+            <div class="flex-grow p-3 bg-black/40 rounded-xl">
+              <span class="text-accent font-bold block mb-1">内存撮合引擎</span>
+              <span>链上维护红黑树或 Crit-bit 树，直接在区块生成过程中撮合。</span>
+            </div>
+            <div class="flex-grow p-3 bg-black/40 rounded-xl">
+              <span class="text-purple-400 font-bold block mb-1">抗审查性</span>
+              <span>只要区块链运行，市场永不关闭，无中心化审核风险。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="badge">Section 04: 链上订单簿技术解决方案</div>
+    <h2 class="section-title">核心工具：条件代币框架 (CTF)</h2>
+    <div class="flex-grow flex flex-col justify-center">
+      <div class="max-w-4xl mx-auto glass-card p-12 text-center relative overflow-hidden">
+        <div class="absolute top-0 right-0 p-4 opacity-5">
+          <i class="fas fa-project-diagram text-[10rem]"></i>
+        </div>
+        <h3 class="text-3xl font-black mb-8 text-blue-500">CTF (Conditional Tokens Framework)</h3>
+        <p class="text-slate-400 text-lg leading-relaxed mb-12">
+          基于 Gnosis 开发的 <strong>ERC-1155 标准</strong>。支持将核心资产（如 USDC）拆分成互斥的条件代币（YES / NO）。
+        </p>
+        <div class="grid grid-cols-2 gap-12">
+          <div class="text-left border-r border-white/10 pr-12">
+            <span class="block text-accent font-bold text-sm mb-4 uppercase tracking-widest">Logic Detail</span>
+            <p class="text-sm text-slate-500 leading-relaxed italic">
+              "合并流动性：Sell YES = Buy NO。架构自动将 Sell YES 订单映射为 Buy NO。"
+            </p>
+          </div>
+          <div class="text-left">
+            <span class="block text-amber-500 font-bold text-sm mb-4 uppercase tracking-widest">Efficiency formula</span>
+            <div class="text-4xl font-black text-white font-mono">
+              1 YES + 1 NO = 1 Unit
+            </div>
+            <p class="text-[10px] text-slate-500 mt-4 leading-relaxed">
+              该恒定公式极大地提高了资本效率，确保了“原子交换”的确定性。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="badge">Section 05: 黑客松三大任务</div>
+    <h2 class="section-title">基建完善：任务 01 与 02</h2>
+    <div class="grid grid-cols-2 gap-12 flex-grow">
+      <div class="glass-card border-blue-500/30">
+        <span class="badge">Task 01</span>
+        <h3 class="text-2xl font-bold mb-4">动态事件情报引擎</h3>
+        <p class="text-sm text-slate-500 mb-8 font-medium">目标：实现从现实世界热点到链上资产的标准化转化。</p>
+        <div class="space-y-6">
+          <div class="flex gap-4">
+            <div class="w-10 h-10 rounded-full bg-blue-900/40 flex items-center justify-center text-blue-400 flex-shrink-0">
+              <i class="fas fa-satellite"></i>
+            </div>
+            <div>
+              <span class="font-bold text-sm block">多维数据采集</span>
+              <span class="text-xs text-slate-500 leading-relaxed">自动抓取政策、Gaming、加密市场及社媒实时热点，构建全方位信息流。</span>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="w-10 h-10 rounded-full bg-blue-900/40 flex items-center justify-center text-blue-400 flex-shrink-0">
+              <i class="fas fa-spell-check"></i>
+            </div>
+            <div>
+              <span class="font-bold text-sm block">语义标准化与标签化</span>
+              <span class="text-xs text-slate-500 leading-relaxed">利用 NLP 技术分类清洗原始数据，构建多层级标签体系 (Policy, Social, Crypto)。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="glass-card border-emerald-500/30">
+        <span class="badge">Task 02</span>
+        <h3 class="text-2xl font-bold mb-4">全链上中央限制订单簿</h3>
+        <p class="text-sm text-slate-500 mb-8 font-medium">目标：突破传统模式，实现真正的去中心化交易。</p>
+        <div class="space-y-6">
+          <div class="flex gap-4">
+            <div class="w-10 h-10 rounded-full bg-emerald-900/40 flex items-center justify-center text-emerald-400 flex-shrink-0">
+              <i class="fas fa-microchip"></i>
+            </div>
+            <div>
+              <span class="font-bold text-sm block">透明撮合算法</span>
+              <span class="text-xs text-slate-500 leading-relaxed">所有挂单 (Maker) 与成交 (Taker) 逻辑由合约驱动，彻底消除作恶空间。</span>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="w-10 h-10 rounded-full bg-emerald-900/40 flex items-center justify-center text-emerald-400 flex-shrink-0">
+              <i class="fas fa-lock"></i>
+            </div>
+            <div>
+              <span class="font-bold text-sm block">资产确权与高效执行</span>
+              <span class="text-xs text-slate-500 leading-relaxed">优化链上存储架构，提供毫秒级响应，确保用户对资金的绝对控制权。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="badge">Section 05: 黑客松三大任务</div>
+    <h2 class="section-title">流动性飞轮：任务 03</h2>
+    <div class="glass-card flex-grow relative overflow-hidden border-purple-500/30">
+      <div class="grid grid-cols-12 h-full items-center">
+        <div class="col-span-4 p-8">
+          <span class="badge bg-purple-900/20 border-purple-500/50">Task 03</span>
+          <h3 class="text-4xl font-black mb-6 text-purple-400">跨平台自动化<br>预测做市商 (APMM)</h3>
+          <p class="text-slate-400 leading-relaxed">
+            通过算法驱动提升市场深度，解决冷启动流动性枯竭，实现无缝风险对冲。
+          </p>
+        </div>
+        <div class="col-span-8 grid grid-cols-2 gap-8 p-8 border-l border-white/5">
+          <div class="glass-card bg-black/40">
+            <h4 class="text-xl font-bold mb-4"><i class="fas fa-robot text-purple-500 mr-2"></i>智能做市策略</h4>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              为预测市场提供自动化支持，平滑价格曲线，大幅降低交易滑点，提升活跃度。
+            </p>
+          </div>
+          <div class="glass-card bg-black/40">
+            <h4 class="text-xl font-bold mb-4"><i class="fas fa-sync-alt text-purple-500 mr-2"></i>跨协议对冲引擎</h4>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              实时监测不同平台间 (Polymarket vs. ChooseMe) 的价差，执行自动化对冲，保障 LP 资产安全。
+            </p>
+          </div>
+          <div class="col-span-2 glass-card bg-purple-500/5 flex items-center justify-center text-center">
+            <div>
+              <span class="text-2xl font-bold block mb-2">Liquidity Aggregation</span>
+              <span class="text-sm text-slate-500">结合订单簿与算法策略，为冷启动事件提供即时深度。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide flex items-center justify-center text-center">
+    <div class="max-w-4xl">
+      <h2 class="text-6xl font-black mb-12 italic leading-tight">
+        ChooseMe: Standardizing the Future of Prediction.
+      </h2>
+      <div class="h-1 w-32 bg-blue-600 mx-auto mb-12"></div>
+      <p class="text-2xl text-slate-400 font-light mb-16">
+        从“应用”到“能力”，构建预测市场的下一代基石。
+      </p>
+      <div class="badge p-4 px-12 text-lg">Thank You for Your Attention.</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="controls">
+  <div class="slide-number" id="slideNumber">01 / 12</div>
+  <div class="nav-btn" onclick="prevSlide()" id="prevBtn"><i class="fas fa-chevron-left"></i></div>
+  <div class="nav-btn" onclick="nextSlide()" id="nextBtn"><i class="fas fa-chevron-right"></i></div>
+</div>
+
+<div id="speaker-notes">
+  <span class="note-title" id="noteTitle">Note for Slide 01</span>
+  <div class="note-content" id="noteContent">
+    Welcome everyone. I'm Jesse, CTO of ChooseMe. Today we'll dive into the technical implementation of our prediction market BaaS.
+  </div>
+</div>
+
+<script>
+  let currentSlide = 0;
+  const slides = document.querySelectorAll('.slide');
+  const progressBar = document.getElementById('progressBar');
+  const slideNumber = document.getElementById('slideNumber');
+  const notesPane = document.getElementById('speaker-notes');
+  const noteTitle = document.getElementById('noteTitle');
+  const noteContent = document.getElementById('noteContent');
+
+  const notes = [
+    "开场：欢迎大家。我是 ChooseMe 的 CTO Jesse。今天我将详细介绍我们如何通过混合架构和模块化设计，将预测市场升级为一种可复制的基础设施能力。",
+    "第一部分：ChooseMe 不只是一个 Dapp，它是一个 BaaS 平台。我们的核心目标是彻底解耦事件、资金和费用。这里的关键是 AI Agent 驱动和多链支持。",
+    "架构解析：这是我们的链下大脑。PostgreSQL 处理结构化数据，Relayer 是连接 Web2 和 Web3 的关键枢纽。Websocket 则保证了前端 K 线图的毫秒级同步。",
+    "链上层设计：这是资产安全的关键。每个项目方拥有独立的合约 Pod。投注资金直接进入 Funding-Pod，非托管设计确保了即便是后端受损，资产依然受链上保护。",
+    "管理器架构：我们通过四个 Manager 拆分业务逻辑。最精彩的是 Pod 系统隔离机制，它实现了物理级的风险隔离，项目 A 的漏洞绝不会影响到项目 B。",
+    "x402 协议：我们复活了 HTTP 1.1 中沉睡的 402 状态码。这是一种创新的去中心化支付方案。核心在于将 Nonce 嵌入 Calldata，利用 ERC-20 协议的特性实现防重放攻击。",
+    "交互闭环：这是 x402 的六步流程。重点在于第五步，服务端直接在链上验证，确保去中心化且无需信任。JWT 收据则解决了 1 小时内重复支付的问题。",
+    "CLOB 逻辑：预测市场是长尾市场。我们分析了 Hybrid 和 Fully On-Chain 两种路径。Hybrid 追求性能，On-Chain 追求极致透明。两者各有利弊。",
+    "CTF 框架：基于 Gnosis 的 ERC-1155 标准。核心数学公式是 1 YES + 1 NO = 1 Unit，这支撑了合并流动性逻辑，大大提升了资本效率。",
+    "黑客松任务 1&2：我们要解决动态情报抓取和全链上订单簿。任务 1 侧重 NLP 和模板化，任务 2 侧重链上存储优化和撮合逻辑的极致去中心化。",
+    "任务 3：流动性是生命线。APMM 通过跨协议对冲（比如和 Polymarket 对冲）来保障 LP 安全。这解决了冷启动问题，打造了流动性飞轮。",
+    "总结：感谢聆听。ChooseMe 正在将预测市场标准化。希望通过本次黑客松，能有更多开发者基于我们的底座构建出伟大的应用。"
+  ];
+
+  function showSlide(index) {
+    slides.forEach((slide, i) => {
+      slide.classList.remove('active', 'exit-left', 'enter-right');
+      if (i === index) {
+        slide.classList.add('active');
+      } else if (i < index) {
+        slide.classList.add('exit-left');
+      } else {
+        slide.classList.add('enter-right');
+      }
+    });
+
+    const progress = ((index + 1) / slides.length) * 100;
+    progressBar.style.width = `${progress}%`;
+    slideNumber.innerText = `${String(index + 1).padStart(2, '0')} / ${slides.length}`;
+
+    // Update Notes
+    noteTitle.innerText = `Note for Slide ${String(index + 1).padStart(2, '0')}`;
+    noteContent.innerText = notes[index] || "No notes for this slide.";
+  }
+
+  function nextSlide() {
+    if (currentSlide < slides.length - 1) {
+      currentSlide++;
+      showSlide(currentSlide);
+    }
+  }
+
+  function prevSlide() {
+    if (currentSlide > 0) {
+      currentSlide--;
+      showSlide(currentSlide);
+    }
+  }
+
+  // Keyboard controls
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+    if (e.key === 'ArrowLeft') prevSlide();
+    if (e.key.toLowerCase() === 'n') notesPane.classList.toggle('open');
+  });
+
+  // Initialize
+  showSlide(0);
+</script>
+</body>
+</html>

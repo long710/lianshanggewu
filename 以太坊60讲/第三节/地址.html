@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>以太坊地址生成全解：从混沌到秩序</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Noto+Sans+SC:wght@300;400;700;900&display=swap');
+
+    :root {
+      --acid-green: #00FF00;
+      --electric-purple: #A020F0;
+      --cyber-cyan: #00FFFF;
+      --alert-pink: #FF0055;
+      --bg-dark: #0D0D0D;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: #E0E0E0;
+      font-family: 'Noto Sans SC', sans-serif;
+      overflow: hidden;
+    }
+
+    .font-mono { font-family: 'Fira Code', monospace; }
+
+    .cyber-panel {
+      background: rgba(26, 26, 26, 0.8);
+      border: 1px solid rgba(160, 32, 240, 0.2);
+      backdrop-filter: blur(10px);
+      border-radius: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .cyber-panel:hover {
+      border-color: var(--cyber-cyan);
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
+    }
+
+    .glow-green { text-shadow: 0 0 10px var(--acid-green); }
+    .glow-purple { text-shadow: 0 0 10px var(--electric-purple); }
+
+    .slide-enter { animation: slideIn 0.4s ease-out forwards; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .active-nav-item {
+      background: rgba(160, 32, 240, 0.1);
+      border-left: 4px solid var(--acid-green);
+      color: white;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+  </style>
+</head>
+<body class="h-screen flex flex-col">
+
+<!-- 顶部状态条 -->
+<header class="h-16 border-b border-white/10 flex items-center justify-between px-10 bg-black/40 backdrop-blur-md z-50">
+  <div class="flex items-center gap-4">
+    <div class="p-2 bg-[#A020F0] rounded shadow-[0_0_15px_rgba(160,32,240,0.4)]">
+      <i data-lucide="shield-check" class="text-white w-6 h-6"></i>
+    </div>
+    <div>
+      <h1 class="font-black text-lg tracking-tighter uppercase italic">Ethereum Deconstruction</h1>
+      <p class="text-[10px] text-[#00FF00] font-mono tracking-widest uppercase">From Entropy to Address // V2.0</p>
+    </div>
+  </div>
+  <div id="slide-index" class="text-xs font-mono text-[#00FFFF] bg-[#00FFFF]/10 px-3 py-1 rounded-full border border-[#00FFFF]/30">
+    STAGE 01 / 06
+  </div>
+</header>
+
+<div class="flex-1 flex overflow-hidden">
+  <!-- 侧边导航 -->
+  <aside class="w-72 border-r border-white/10 p-8 flex flex-col justify-between bg-black/20">
+    <div>
+      <h2 class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mb-8">格物阶段导航</h2>
+      <nav id="nav-list" class="space-y-4">
+        <!-- JS动态填充 -->
+      </nav>
+    </div>
+    <div class="text-[10px] text-gray-600 font-mono space-y-1">
+      <p>CRYPTO_ENGINE: SECP256K1</p>
+      <p>HASH_FUNC: KECCAK-256</p>
+      <p>STATUS: <span class="text-[#00FF00] animate-pulse">READY</span></p>
+    </div>
+  </aside>
+
+  <!-- 主内容显示区 -->
+  <main id="slide-container" class="flex-1 p-12 overflow-y-auto custom-scrollbar relative">
+    <!-- 装饰性背景 -->
+    <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: radial-gradient(circle, #00FF00 1px, transparent 1px); background-size: 30px 30px;"></div>
+
+    <div id="content-area" class="max-w-5xl mx-auto slide-enter">
+      <!-- JS动态内容填充 -->
+    </div>
+  </main>
+</div>
+
+<!-- 底部控制 -->
+<footer class="h-14 border-t border-white/10 flex items-center justify-between px-10 bg-black">
+  <div class="flex gap-4">
+    <button onclick="prevSlide()" class="p-2 hover:bg-white/10 rounded-full transition-all text-gray-400 hover:text-white">
+      <i data-lucide="chevron-left"></i>
+    </button>
+    <button onclick="nextSlide()" class="p-2 hover:bg-white/10 rounded-full transition-all text-gray-400 hover:text-white">
+      <i data-lucide="chevron-right"></i>
+    </button>
+  </div>
+  <div class="flex gap-2" id="dot-nav"></div>
+  <div class="text-[10px] text-gray-500 uppercase font-mono tracking-widest">
+    解剖精密怀表 // 传递动力逻辑
+  </div>
+</footer>
+
+<script>
+  const DATA = [
+    {
+      id: 1,
+      title: "第一阶段：混沌初开",
+      sub: "熵 (Entropy) 与 助记词",
+      icon: "binary",
+      html: `
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="space-y-6">
+                            <div class="cyber-panel p-8 border-l-4 border-[#00FF00]">
+                                <h3 class="text-[#00FF00] font-bold text-xl mb-4 flex items-center gap-2">
+                                    <i data-lucide="database" class="w-5 h-5"></i> 核心名词解释
+                                </h3>
+                                <ul class="space-y-4">
+                                    <li>
+                                        <span class="text-white font-bold text-sm">熵 (Entropy)：</span>
+                                        <p class="text-xs text-gray-400 mt-1">系统的混乱程度。代表“不可预测的随机性”。</p>
+                                    </li>
+                                    <li>
+                                        <span class="text-white font-bold text-sm">BIP-39 标准：</span>
+                                        <p class="text-xs text-gray-400 mt-1">定义如何将计算机随机数翻译成人类可读的单词。</p>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="space-y-6">
+                            <div class="cyber-panel p-8">
+                                <h3 class="text-[#00FFFF] font-bold text-sm mb-6 uppercase tracking-widest">格物致知过程</h3>
+                                <div class="space-y-4 font-mono">
+                                    <div class="flex items-start gap-4 p-3 bg-black/40 rounded border border-white/5">
+                                        <span class="text-[#A020F0] font-black">01</span>
+                                        <p class="text-xs">生成 128位 随机二进制（天道）。</p>
+                                    </div>
+                                    <div class="flex items-start gap-4 p-3 bg-black/40 rounded border border-white/5">
+                                        <span class="text-[#A020F0] font-black">02</span>
+                                        <p class="text-xs">SHA-256 哈希取前 4位 作校验拼接。</p>
+                                    </div>
+                                    <div class="flex items-start gap-4 p-3 bg-black/40 rounded border border-white/5">
+                                        <span class="text-[#A020F0] font-black">03</span>
+                                        <p class="text-xs">132位数据每 11位 切一刀（2048个索引）。</p>
+                                    </div>
+                                    <div class="flex items-start gap-4 p-3 bg-black/40 rounded border border-white/5">
+                                        <span class="text-[#A020F0] font-black">04</span>
+                                        <p class="text-xs text-[#00FF00]">查 BIP-39 单词表，映射为 12 个单词。</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `
+    },
+    {
+      id: 2,
+      title: "第二阶段：固化根基",
+      sub: "种子 (Seed) 与 慢哈希熔炉",
+      icon: "zap",
+      html: `
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                        <div class="lg:col-span-3 cyber-panel p-8 border-l-4 border-[#A020F0]">
+                            <h3 class="text-[#A020F0] font-bold text-xl mb-6">PBKDF2：密钥拉伸算法</h3>
+                            <div class="flex items-center gap-8 mb-8">
+                                <div class="w-32 h-32 border-4 border-[#A020F0] border-dashed rounded-full flex flex-col items-center justify-center animate-[spin_20s_linear_infinite]">
+                                    <span class="text-2xl font-black text-white italic">2048</span>
+                                    <span class="text-[8px] text-gray-500 uppercase tracking-widest">Cycles</span>
+                                </div>
+                                <div class="flex-1 space-y-4">
+                                    <div class="p-4 bg-black/40 rounded">
+                                        <p class="text-xs text-[#00FFFF]">加盐 (Salt) 机制</p>
+                                        <p class="text-[10px] text-gray-500 mt-1">助记词 + "mnemonic" 字符串 + 可选密码 (Passphrase)</p>
+                                    </div>
+                                    <p class="text-xs leading-relaxed text-gray-400">故意增加计算难度，让黑客在暴力穷举时“慢得像蜗牛”。</p>
+                                </div>
+                            </div>
+                            <div class="bg-black/60 p-4 rounded border border-white/10 text-xs italic text-gray-500 text-center font-mono">
+                                Output: 512-bit (64 Bytes) Binary Seed
+                            </div>
+                        </div>
+                        <div class="lg:col-span-2 flex flex-col gap-8">
+                            <div class="cyber-panel p-6 bg-[#FF0055]/5 border-[#FF0055]/20">
+                                <h4 class="text-[#FF0055] text-xs font-bold mb-4 uppercase">防御：彩虹表攻击</h4>
+                                <p class="text-[10px] text-gray-400 leading-relaxed">彩虹表是预计算的答案表。通过 PBKDF2 的数千次迭代和个性化的“盐”，我们让黑客的离线速查表彻底失效。</p>
+                            </div>
+                            <div class="cyber-panel p-6 bg-[#00FF00]/5 border-[#00FF00]/20">
+                                <h4 class="text-[#00FF00] text-xs font-bold mb-4 uppercase">核心逻辑</h4>
+                                <p class="text-[10px] text-gray-400 leading-relaxed">助记词是给人记的，Seed 是给机器跑的。PBKDF2 就是横在“人词”和“机种”之间的一堵高墙。</p>
+                            </div>
+                        </div>
+                    </div>
+                `
+    },
+    {
+      id: 3,
+      title: "第三阶段：主干生长",
+      sub: "主扩展密钥 (Master Extended Key)",
+      icon: "key",
+      html: `
+                    <div class="space-y-8">
+                        <div class="cyber-panel p-10 text-center">
+                            <p class="text-[10px] text-gray-500 mb-2 font-mono uppercase tracking-[0.3em]">Processing Logic: HMAC-SHA512</p>
+                            <div class="text-3xl font-black text-[#00FFFF] mb-4 glow-purple">种子分裂：控制权与繁衍权</div>
+                            <p class="text-xs text-gray-400 max-w-2xl mx-auto">使用固定常量字符串 "Bitcoin seed" 作为模具，将种子均匀搅拌并一分为二。</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-8">
+                            <div class="p-8 cyber-panel border-t-4 border-[#00FFFF] bg-[#00FFFF]/5">
+                                <div class="text-xs font-bold text-[#00FFFF] mb-4 uppercase">左侧 256位 // 主私钥</div>
+                                <p class="text-sm text-gray-200 leading-relaxed italic">控制权中心：用于签名交易，掌控根账户及其下所有子账户的资产安全性。</p>
+                            </div>
+                            <div class="p-8 cyber-panel border-t-4 border-[#FF0055] bg-[#FF0055]/5">
+                                <div class="text-xs font-bold text-[#FF0055] mb-4 uppercase">右侧 256位 // 主链码</div>
+                                <p class="text-sm text-gray-200 leading-relaxed italic">繁衍权基因：作为高熵随机源，决定了派生子孙私钥时的唯一路径属性。</p>
+                            </div>
+                        </div>
+                    </div>
+                `
+    },
+    {
+      id: 4,
+      title: "第四阶段：枝叶分岔",
+      sub: "路径派生 (BIP-32 & BIP-44)",
+      icon: "git-branch",
+      html: `
+                    <div class="space-y-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="p-6 cyber-panel border border-white/10">
+                                <h4 class="text-[#00FF00] text-sm font-bold mb-4">BIP-32：造树的技术</h4>
+                                <p class="text-xs text-gray-400 leading-relaxed">定义了“一根生万脉”的数学标准。引入 CKD (子密钥派生函数)，通过父级私钥+链码+索引，无限递归生成子孙节点。</p>
+                            </div>
+                            <div class="p-6 cyber-panel border border-white/10">
+                                <h4 class="text-[#00FFFF] text-sm font-bold mb-4">BIP-44：画树的蓝图</h4>
+                                <p class="text-xs text-gray-400 leading-relaxed">规定了所有钱包必须遵循的“文件目录”。<br>层级：Purpose' / Coin' / Account' / Change / Index</p>
+                            </div>
+                        </div>
+                        <div class="cyber-panel p-8 bg-[#121212]">
+                            <h4 class="text-xs font-bold mb-6 text-gray-500 uppercase">安全性平衡：混合派生策略</h4>
+                            <div class="flex flex-col md:flex-row gap-6">
+                                <div class="flex-1 p-4 bg-[#FF0055]/10 border border-[#FF0055]/30 rounded">
+                                    <span class="text-[#FF0055] font-black text-xs">硬化派生 (Hardened ')</span>
+                                    <p class="text-[10px] mt-2 text-gray-400">父私钥参与计算。防止“满门抄斩”：某个子私钥泄露，黑客无法反推父级和兄弟私钥。</p>
+                                </div>
+                                <div class="flex-1 p-4 bg-[#00FF00]/10 border border-[#00FF00]/30 rounded">
+                                    <span class="text-[#00FF00] font-black text-xs">常规派生 (Normal)</span>
+                                    <p class="text-[10px] mt-2 text-gray-400">父公钥参与计算。支持“观察钱包”：无需私钥即可由 xpub 推导出所有下层地址进行收款监控。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `
+    },
+    {
+      id: 5,
+      title: "第五阶段：虚实投影",
+      sub: "公钥 (Public Key) 几何变换",
+      icon: "circle-dot",
+      html: `
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                        <div class="space-y-8">
+                            <div class="cyber-panel p-10 border-l-4 border-[#A020F0]">
+                                <h3 class="text-3xl font-black font-mono text-white mb-4 italic">K = k * G</h3>
+                                <p class="text-xs text-gray-400 leading-relaxed mb-6">私钥是一个巨大的整数 (k)，公钥是曲面上的坐标 (K)。我们将私钥乘以基点 G，在椭圆曲线上进行无数次“点加”与“倍点”运算。</p>
+                                <div class="flex gap-4">
+                                    <div class="px-3 py-1 bg-black rounded border border-white/10 text-[10px] text-[#00FFFF] font-mono">SECP256K1</div>
+                                    <div class="px-3 py-1 bg-black rounded border border-white/10 text-[10px] text-[#FF0055] font-mono">ONE-WAY VALVE</div>
+                                </div>
+                            </div>
+                            <div class="p-6 bg-[#A020F0]/5 rounded border border-[#A020F0]/20">
+                                <h4 class="text-xs font-bold mb-2">离散对数难题</h4>
+                                <p class="text-[10px] text-gray-500 leading-relaxed italic">你可以轻易算出几万次跳跃后的落点，但看着落点，你无法在宇宙毁灭前算出跳跃了多少次。</p>
+                            </div>
+                        </div>
+                        <div class="relative flex justify-center py-10">
+                            <div class="absolute inset-0 bg-gradient-to-tr from-[#A020F0]/10 to-transparent blur-3xl rounded-full"></div>
+                            <div class="relative w-72 h-72 border-2 border-dashed border-[#A020F0]/30 rounded-full flex items-center justify-center animate-[spin_60s_linear_infinite]">
+                                <div class="absolute top-0 w-4 h-4 bg-[#00FF00] rounded-full shadow-[0_0_15px_#00FF00]"></div>
+                                <div class="w-48 h-48 border border-[#00FFFF]/30 rounded-full flex items-center justify-center">
+                                    <span class="text-[#00FFFF] font-mono text-sm">Coordinate (X, Y)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `
+    },
+    {
+      id: 6,
+      title: "第六阶段：最终铭刻",
+      sub: "地址 (Address) 的诞生",
+      icon: "fingerprint",
+      html: `
+                    <div class="space-y-8">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <div class="md:col-span-2 space-y-8">
+                                <div class="cyber-panel p-8 space-y-6">
+                                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-widest">哈希算法：Keccak-256</h4>
+                                    <div class="p-4 bg-black/60 rounded border border-[#00FFFF]/20 font-mono text-xs">
+                                        <p class="text-gray-500 mb-2">// Raw Result (32 Bytes)</p>
+                                        <div class="break-all opacity-40 italic">d6e2c17d3d213824100c505307a51804...</div>
+                                    </div>
+                                    <div class="flex items-center gap-4">
+                                        <i data-lucide="scissors" class="text-[#FF0055] w-6 h-6"></i>
+                                        <div>
+                                            <p class="text-xs text-white">暴力截断过程</p>
+                                            <p class="text-[10px] text-gray-500 mt-1 italic">丢弃前 12 字节 (96位)，保留后 20 字节 (160位)。</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col justify-center gap-6">
+                                <div class="cyber-panel p-8 bg-[#00FF00]/10 border-[#00FF00]/50 shadow-[0_0_30px_rgba(0,255,0,0.1)]">
+                                    <div class="text-[10px] text-[#00FF00] font-black uppercase mb-4 tracking-tighter">Final Output</div>
+                                    <div class="text-2xl font-black font-mono text-white mb-1">
+                                        <span class="text-[#00FFFF] opacity-50">0x</span>56570c98...
+                                    </div>
+                                    <div class="text-[9px] text-gray-500">20-Byte Hex String</div>
+                                </div>
+                                <p class="text-[10px] text-gray-500 leading-relaxed p-4 bg-black/20 rounded">这一过程确立了地址的简练性，同时提供了 1.46 × 10^48 种可能性，碰撞几率几乎为零。</p>
+                            </div>
+                        </div>
+                    </div>
+                `
+    }
+  ];
+
+  let currentSlide = 0;
+
+  function renderNav() {
+    const nav = document.getElementById('nav-list');
+    nav.innerHTML = DATA.map((item, idx) => `
+                <button onclick="goToSlide(${idx})" class="w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${currentSlide === idx ? 'active-nav-item shadow-lg' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}">
+                    <div class="p-2 rounded bg-black/40 border border-white/5">
+                        <i data-lucide="${item.icon}" class="w-4 h-4 ${currentSlide === idx ? 'text-[#00FF00]' : 'text-gray-600'}"></i>
+                    </div>
+                    <div>
+                        <div class="text-[9px] font-bold uppercase opacity-50">Stage 0${item.id}</div>
+                        <div class="text-xs font-bold leading-tight">${item.title}</div>
+                    </div>
+                </button>
+            `).join('');
+    lucide.createIcons();
+  }
+
+  function renderDots() {
+    const dots = document.getElementById('dot-nav');
+    dots.innerHTML = DATA.map((_, idx) => `
+                <div class="w-2 h-2 rounded-full transition-all duration-500 ${currentSlide === idx ? 'bg-[#00FFFF] w-8' : 'bg-white/10'}"></div>
+            `).join('');
+  }
+
+  function updateContent() {
+    const item = DATA[currentSlide];
+    const contentArea = document.getElementById('content-area');
+    const slideIndex = document.getElementById('slide-index');
+
+    contentArea.classList.remove('slide-enter');
+    void contentArea.offsetWidth; // Trigger reflow
+    contentArea.classList.add('slide-enter');
+
+    contentArea.innerHTML = `
+                <div class="mb-12">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="h-px w-12 bg-[#00FF00]/50"></div>
+                        <span class="text-[10px] font-mono text-[#00FF00] tracking-widest uppercase">System Deconstruction Stage</span>
+                    </div>
+                    <h2 class="text-4xl font-black text-white glow-purple uppercase tracking-tighter mb-2">${item.title}</h2>
+                    <p class="text-lg text-[#00FFFF] font-light italic">${item.sub}</p>
+                </div>
+                ${item.html}
+            `;
+
+    slideIndex.innerText = `STAGE 0${item.id} / 06`;
+    renderNav();
+    renderDots();
+    lucide.createIcons();
+  }
+
+  function nextSlide() { if(currentSlide < DATA.length - 1) { currentSlide++; updateContent(); } }
+  function prevSlide() { if(currentSlide > 0) { currentSlide--; updateContent(); } }
+  function goToSlide(idx) { currentSlide = idx; updateContent(); }
+
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+    if(e.key === 'ArrowLeft') prevSlide();
+  });
+
+  window.onload = () => updateContent();
+</script>
+</body>
+</html>
